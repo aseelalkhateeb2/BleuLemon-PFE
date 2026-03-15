@@ -1,4 +1,3 @@
-# BleuLemon-PFE
 # BleuLemon — AI Proposal Generator
 
 Outil de génération de propositions commerciales via IA.

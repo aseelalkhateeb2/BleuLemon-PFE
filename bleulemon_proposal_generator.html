@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BleuLemon — Générateur de Propositions Commerciales</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:       #1a2744;
+  --navy-light: #2a3a5e;
+  --teal:       #1D9E75;
+  --teal-mid:   #5DCAA5;
+  --teal-light: #E1F5EE;
+  --teal-dark:  #085041;
+  --gray-50:    #F8F9FA;
+  --gray-100:   #F1F0E9;
+  --gray-200:   #E0DFDA;
+  --gray-400:   #9B9A95;
+  --gray-600:   #5F5E5A;
+  --gray-900:   #1C1C1A;
+  --white:      #FFFFFF;
+  --border:     rgba(0,0,0,0.10);
+  --border-md:  rgba(0,0,0,0.18);
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.10);
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --font:       'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono:  'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--gray-50);
+  color: var(--gray-900);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* ── Layout ───────────────────────────────────────────────────── */
+.app-shell {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.sidebar {
+  background: var(--navy);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar-logo {
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.logo-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--teal);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-text { font-size: 15px; font-weight: 600; }
+.logo-sub  { font-size: 11px; opacity: 0.55; margin-top: 2px; }
+
+.sidebar-nav { padding: 16px 12px; flex: 1; }
+
+.nav-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  padding: 0 12px;
+  margin-bottom: 6px;
+  margin-top: 16px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 14px;
+  color: rgba(255,255,255,0.65);
+  user-select: none;
+}
+
+.nav-item:hover { background: rgba(255,255,255,0.07); color: white; }
+
+.nav-item.active {
+  background: rgba(29,158,117,0.2);
+  color: var(--teal-mid);
+  font-weight: 500;
+}
+
+.nav-item.done { color: rgba(255,255,255,0.45); }
+.nav-item.done .nav-num { background: var(--teal-dark); color: var(--teal-light); }
+
+.nav-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.nav-item.active .nav-num { background: var(--teal); color: white; }
+
+.sidebar-footer {
+  padding: 16px 24px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  font-size: 12px;
+  color: rgba(255,255,255,0.3);
+}
+
+/* ── Main content ─────────────────────────────────────────────── */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.topbar {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar-title { font-size: 16px; font-weight: 600; color: var(--gray-900); }
+.topbar-sub { font-size: 13px; color: var(--gray-400); margin-top: 1px; }
+
+.api-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--gray-600);
+}
+
+.api-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gray-200);
+  transition: background 0.3s;
+}
+
+.api-dot.ok { background: var(--teal); }
+.api-dot.error { background: #E24B4A; }
+
+.content-area { padding: 32px; flex: 1; }
+
+/* ── Panels ───────────────────────────────────────────────────── */
+.panel { display: none; animation: fadeIn 0.2s ease; }
+.panel.active { display: block; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ── Section headings ─────────────────────────────────────────── */
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 4px;
+}
+
+.section-desc {
+  font-size: 14px;
+  color: var(--gray-400);
+  margin-bottom: 24px;
+}
+
+.field-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-400);
+  margin-bottom: 10px;
+}
+
+/* ── Form ─────────────────────────────────────────────────────── */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.full { grid-column: 1 / -1; }
+
+label { font-size: 13px; font-weight: 500; color: var(--gray-600); }
+
+input[type="text"],
+input[type="password"],
+select,
+textarea {
+  padding: 9px 12px;
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--gray-900);
+  background: var(--white);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(29,158,117,0.12);
+}
+
+textarea { resize: vertical; min-height: 90px; line-height: 1.55; }
+
+/* ── API Key row ──────────────────────────────────────────────── */
+.api-key-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.api-key-card input { flex: 1; }
+
+/* ── Tags ─────────────────────────────────────────────────────── */
+.tag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.tag {
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-size: 13px;
+  border: 1px solid var(--border-md);
+  cursor: pointer;
+  background: var(--white);
+  color: var(--gray-600);
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.tag:hover { border-color: var(--teal); color: var(--teal-dark); background: var(--teal-light); }
+
+.tag.selected {
+  background: var(--teal-light);
+  border-color: var(--teal-mid);
+  color: var(--teal-dark);
+  font-weight: 500;
+}
+
+/* ── Toggle ───────────────────────────────────────────────────── */
+.toggle-switch { position: relative; width: 38px; height: 22px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--gray-200);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.toggle-track::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  top: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.toggle-switch input:checked + .toggle-track { background: var(--teal); }
+.toggle-switch input:checked + .toggle-track::before { transform: translateX(16px); }
+
+/* ── Section cards ────────────────────────────────────────────── */
+.section-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin-bottom: 8px;
+  transition: border-color 0.15s;
+}
+
+.section-card:hover { border-color: var(--border-md); }
+
+.section-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-card-info { display: flex; align-items: center; gap: 8px; flex: 1; }
+.section-card-name { font-size: 14px; font-weight: 500; }
+
+.badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-weight: 500;
+}
+
+.badge-required { background: var(--teal-light); color: var(--teal-dark); }
+.badge-optional { background: var(--gray-100); color: var(--gray-600); }
+
+.section-card-desc { font-size: 13px; color: var(--gray-400); margin-top: 6px; }
+
+/* ── Prompt box ───────────────────────────────────────────────── */
+.prompt-box {
+  background: var(--gray-900);
+  color: #9FE1CB;
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 340px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.prompt-box .hl { color: #FAC775; }
+.prompt-box .key { color: #85B7EB; }
+.prompt-box .val { color: var(--teal-mid); }
+
+/* ── Info cards ───────────────────────────────────────────────── */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.info-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+}
+
+.info-card-label { font-size: 11px; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.info-card-value { font-size: 15px; font-weight: 600; color: var(--gray-900); }
+
+/* ── Progress bar ─────────────────────────────────────────────── */
+.progress-wrap {
+  background: var(--gray-100);
+  border-radius: 4px;
+  height: 4px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--teal);
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.35s ease;
+}
+
+/* ── Status messages ──────────────────────────────────────────── */
+.status-msg {
+  font-size: 13px;
+  color: var(--gray-400);
+  margin-bottom: 16px;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--gray-200);
+  border-top-color: var(--teal);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Result blocks ────────────────────────────────────────────── */
+.result-section {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.result-section-header {
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.result-section-title { font-size: 13px; font-weight: 600; color: var(--gray-900); }
+
+.result-section-body {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--gray-600);
+  line-height: 1.7;
+}
+
+.result-section-body p { margin-bottom: 8px; }
+.result-section-body p:last-child { margin-bottom: 0; }
+
+.pill-ok { background: var(--teal-light); color: var(--teal-dark); font-size: 11px; padding: 3px 10px; border-radius: 100px; font-weight: 500; }
+.pill-pending { background: var(--gray-100); color: var(--gray-400); font-size: 11px; padding: 3px 10px; border-radius: 100px; }
+
+/* ── Reference library ────────────────────────────────────────── */
+.lib-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.lib-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.lib-card:hover { border-color: var(--teal-mid); box-shadow: var(--shadow-sm); }
+
+.lib-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+
+.lib-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.lib-title { font-size: 14px; font-weight: 600; }
+.lib-tags { font-size: 12px; color: var(--gray-400); }
+.lib-desc { font-size: 13px; color: var(--gray-600); }
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+.btn-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.btn {
+  padding: 9px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font);
+  border: 1px solid var(--border-md);
+  background: var(--white);
+  color: var(--gray-900);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover { background: var(--gray-50); }
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.btn-primary { background: var(--navy); color: white; border-color: var(--navy); }
+.btn-primary:hover { background: var(--navy-light); }
+
+.btn-teal { background: var(--teal); color: white; border-color: var(--teal); font-size: 15px; padding: 10px 28px; }
+.btn-teal:hover { opacity: 0.88; background: var(--teal); }
+
+.btn-outline-teal { border-color: var(--teal-mid); color: var(--teal-dark); }
+.btn-outline-teal:hover { background: var(--teal-light); }
+
+/* ── Lang toggle ──────────────────────────────────────────────── */
+.lang-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.lang-btn {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  font-family: var(--font);
+  color: var(--gray-400);
+  transition: all 0.15s;
+}
+
+.lang-btn.active { background: var(--navy); color: white; }
+
+/* ── Hint box ─────────────────────────────────────────────────── */
+.hint {
+  background: var(--teal-light);
+  border: 1px solid var(--teal-mid);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--teal-dark);
+  margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.hint-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── Divider ──────────────────────────────────────────────────── */
+.divider { height: 1px; background: var(--border); margin: 24px 0; }
+
+/* ── Output box ───────────────────────────────────────────────── */
+.output-box {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  font-size: 14px;
+  color: var(--gray-900);
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 600px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+/* ── Download link ────────────────────────────────────────────── */
+.download-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--teal-light);
+  color: var(--teal-dark);
+  border: 1px solid var(--teal-mid);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.download-link:hover { background: #c0f0de; }
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; }
+  .form-grid { grid-template-columns: 1fr; }
+  .info-grid { grid-template-columns: 1fr 1fr; }
+  .lib-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ── SIDEBAR ──────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-box">
+        <div class="logo-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="2" width="7" height="5" rx="1" fill="white"/>
+            <rect x="2" y="9" width="16" height="3" rx="1" fill="#9FE1CB"/>
+            <rect x="2" y="14" width="12" height="3" rx="1" fill="white" opacity="0.65"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-text">BleuLemon</div>
+          <div class="logo-sub">Proposal Generator</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workflow</div>
+
+      <div class="nav-item active" id="nav-1" onclick="goStep(1)">
+        <div class="nav-num">1</div>
+        <span>Brief client</span>
+      </div>
+      <div class="nav-item" id="nav-2" onclick="goStep(2)">
+        <div class="nav-num">2</div>
+        <span>Structure</span>
+      </div>
+      <div class="nav-item" id="nav-3" onclick="goStep(3)">
+        <div class="nav-num">3</div>
+        <span>Prompt généré</span>
+      </div>
+      <div class="nav-item" id="nav-4" onclick="goStep(4)">
+        <div class="nav-num">4</div>
+        <span>Génération IA</span>
+      </div>
+      <div class="nav-item" id="nav-5" onclick="goStep(5)">
+        <div class="nav-num">5</div>
+        <span>Résultat final</span>
+      </div>
+
+      <div class="nav-label" style="margin-top:28px;">Bibliothèque</div>
+      <div class="nav-item" onclick="goStep(6)">
+        <div class="nav-num">★</div>
+        <span>Références clients</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      v1.0 · PFE IAE Lyon 2026<br>BleuLemon · Atlassian Platinum Partner
+    </div>
+  </aside>
+
+  <!-- ── MAIN ─────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="topbar-title">Brief client</div>
+        <div class="topbar-sub" id="topbar-sub">Renseignez les informations du client et du projet</div>
+      </div>
+      <div class="api-status">
+        <div class="api-dot" id="api-dot"></div>
+        <span id="api-status-text">API non configurée</span>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content-area">
+
+      <!-- ── PANEL 1 : BRIEF ─────────────────────────────────── -->
+      <div id="panel-1" class="panel active">
+        <div class="section-title">Informations client & projet</div>
+        <div class="section-desc">Complétez le brief — ces données alimenteront le prompt IA.</div>
+
+        <!-- API Key -->
+        <div class="field-label">Clé API Anthropic</div>
+        <div class="api-key-card">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9B9A95" stroke-width="1.8">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <input type="password" id="api-key" placeholder="sk-ant-api03-..." style="flex:1;" oninput="checkApiKey()" />
+          <span id="key-hint" style="font-size:12px;color:var(--gray-400);white-space:nowrap;">Requis pour générer</span>
+        </div>
+
+        <!-- Client info -->
+        <div class="field-label">Client</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nom du client</label>
+            <input type="text" id="f-client" placeholder="ex. CORPIOT" />
+          </div>
+          <div class="form-group">
+            <label>Secteur d'activité</label>
+            <select id="f-sector">
+              <option value="">— Sélectionner —</option>
+              <option>IT / Technologie</option>
+              <option>Industrie</option>
+              <option>Banque / Finance</option>
+              <option>Énergie / Utilities</option>
+              <option>Retail / Distribution</option>
+              <option>Santé / Pharma</option>
+              <option>Transport / Logistique</option>
+              <option>Secteur public</option>
+              <option>Autre</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Interlocuteur principal</label>
+            <input type="text" id="f-contact" placeholder="ex. José DUPONT, Directeur des Ops" />
+          </div>
+          <div class="form-group">
+            <label>Taille entreprise</label>
+            <select id="f-size">
+              <option value="">— Sélectionner —</option>
+              <option>TPE / Startup (< 50)</option>
+              <option>PME (50 – 250)</option>
+              <option>ETI (250 – 5 000)</option>
+              <option>Grand compte (> 5 000)</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Contexte & besoin principal</label>
+            <textarea id="f-context" rows="4" placeholder="Décrivez le problème à résoudre, la situation actuelle, les outils en place, les enjeux clés, les contraintes techniques ou organisationnelles..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Budget indicatif (€ HT)</label>
+            <input type="text" id="f-budget" placeholder="ex. 25 000 €" />
+          </div>
+          <div class="form-group">
+            <label>Délai souhaité</label>
+            <input type="text" id="f-deadline" placeholder="ex. Q2 2026, 3 mois" />
+          </div>
+        </div>
+
+        <div class="field-label">Type(s) de projet</div>
+        <div class="tag-grid" id="project-types">
+          <span class="tag" data-val="Migration Cloud Atlassian">Migration Cloud</span>
+          <span class="tag" data-val="Implémentation Jira Service Management">Implémentation JSM</span>
+          <span class="tag" data-val="ITSM / Gestion des services IT">ITSM</span>
+          <span class="tag" data-val="ESM / Gestion des services d'entreprise">ESM</span>
+          <span class="tag" data-val="Coaching Agile / SAFe">Agile Coaching</span>
+          <span class="tag" data-val="Formation Atlassian">Formation</span>
+          <span class="tag" data-val="Licensing Atlassian">Licensing</span>
+          <span class="tag" data-val="DevOps">DevOps</span>
+          <span class="tag" data-val="Run / TMA Atlassian">Run / TMA</span>
+          <span class="tag" data-val="Gestion des actifs (Assets / CMDB)">Assets / CMDB</span>
+          <span class="tag" data-val="Reprise de données">Reprise de données</span>
+          <span class="tag" data-val="Intégration SSO / LDAP">SSO / LDAP</span>
+        </div>
+
+        <div class="field-label">Langue de sortie</div>
+        <div class="lang-toggle" style="margin-bottom:24px;">
+          <button class="lang-btn active" id="lang-fr" onclick="setLang('fr')">Français</button>
+          <button class="lang-btn" id="lang-en" onclick="setLang('en')">English</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="goStep(2)">Suivant : Structure →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 2 : STRUCTURE ──────────────────────────────── -->
+      <div id="panel-2" class="panel">
+        <div class="section-title">Structure de la proposition</div>
+        <div class="section-desc">Activez ou désactivez les sections selon le contexte du projet.</div>
+
+        <div class="hint">
+          <span class="hint-icon">💡</span>
+          <span>Les sections <strong>obligatoires</strong> sont toujours incluses. Vous pouvez activer des sections optionnelles selon la nature du projet et les attentes du client.</span>
+        </div>
+
+        <div class="field-label">Sections obligatoires</div>
+        <div id="mandatory-sections"></div>
+
+        <div class="divider"></div>
+
+        <div class="field-label">Sections optionnelles</div>
+        <div id="optional-sections"></div>
+
+        <div class="btn-row">
+          <button class="btn" onclick="goStep(1)">← Retour</button>
+          <button class="btn btn-primary" onclick="goStep(3)">Suivant : Prompt →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 3 : PROMPT ─────────────────────────────────── -->
+      <div id="panel-3" class="panel">
+        <div class="section-title">Prompt généré</div>
+        <div class="section-desc">Prompt système prêt à l'emploi — vous pouvez le copier ou l'envoyer directement à Claude.</div>
+
+        <div class="field-label">Récapitulatif du brief</div>
+        <div class="info-grid" id="brief-summary"></div>
+
+        <div class="field-label">Prompt système (copier/modifier si besoin)</div>
+        <div class="prompt-box" id="prompt-display"></div>
+
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:4px;">
+          <button class="btn btn-outline-teal" onclick="copyPrompt()">📋 Copier le prompt</button>
+          <button class="btn btn-outline-teal" onclick="downloadPrompt()">⬇ Télécharger .txt</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn" onclick="goStep(2)">← Retour</button>
+          <button class="btn btn-teal" onclick="goStep(4)">Générer la proposition →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 4 : GÉNÉRATION ────────────────────────────── -->
+      <div id="panel-4" class="panel">
+        <div class="section-title">Génération IA en cours</div>
+        <div class="section-desc">Claude rédige votre proposition commerciale…</div>
+
+        <div class="progress-wrap">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+
+        <div class="status-msg">
+          <div class="spinner" id="spinner"></div>
+          <span id="status-text">En attente…</span>
+        </div>
+
+        <div class="output-box" id="streaming-box" style="display:none;"></div>
+
+        <div class="btn-row" id="gen-btn-row" style="display:none;">
+          <button class="btn" onclick="goStep(3)">← Modifier le prompt</button>
+          <button class="btn btn-primary" onclick="goStep(5)">Voir le résultat structuré →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 5 : RÉSULTAT ──────────────────────────────── -->
+      <div id="panel-5" class="panel">
+        <div class="section-title">Proposition commerciale générée</div>
+        <div class="section-desc">Relisez, ajustez et téléchargez votre proposition.</div>
+
+        <div id="result-blocks"></div>
+
+        <div class="divider"></div>
+
+        <div class="field-label">Actions</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+          <button class="btn btn-outline-teal" onclick="downloadResult()">⬇ Télécharger .txt</button>
+          <button class="btn btn-outline-teal" onclick="copyResult()">📋 Copier le texte</button>
+          <button class="btn btn-primary" onclick="translateResult()" id="btn-translate">🌐 Traduire en anglais</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn" onclick="goStep(3)">← Modifier le brief</button>
+          <button class="btn btn-teal" onclick="regenerate()">Régénérer →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 6 : BIBLIOTHÈQUE ──────────────────────────── -->
+      <div id="panel-6" class="panel">
+        <div class="section-title">Bibliothèque de références clients</div>
+        <div class="section-desc">Sélectionnez une référence pour l'injecter dans votre prochaine proposition.</div>
+
+        <div class="lib-grid" id="lib-grid"></div>
+
+        <div class="divider"></div>
+
+        <div class="field-label">Ajouter une référence</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nom du client</label>
+            <input type="text" id="lib-new-client" placeholder="ex. Safran" />
+          </div>
+          <div class="form-group">
+            <label>Tags</label>
+            <input type="text" id="lib-new-tags" placeholder="ex. Migration, Cloud, JSM" />
+          </div>
+          <div class="form-group full">
+            <label>Description du projet</label>
+            <textarea id="lib-new-desc" rows="2" placeholder="Décrivez le projet et les résultats obtenus..."></textarea>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="addLibEntry()">+ Ajouter à la bibliothèque</button>
+      </div>
+
+    </div><!-- /content-area -->
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════════════════ */
+var state = {
+  step: 1,
+  lang: 'fr',
+  selectedTypes: [],
+  generatedText: '',
+  translatedText: '',
+};
+
+var STEP_TITLES = [
+  '', 'Brief client', 'Structure', 'Prompt généré', 'Génération IA', 'Résultat final', 'Bibliothèque'
+];
+
+var STEP_SUBS = [
+  '',
+  'Renseignez les informations du client et du projet',
+  'Choisissez les sections à inclure dans la proposition',
+  'Vérifiez et copiez le prompt système généré',
+  'Claude rédige votre proposition commerciale',
+  'Relisez, téléchargez et traduisez la proposition',
+  'Gérez votre bibliothèque de références clients'
+];
+
+/* ── Section definitions ──────────────────────────────────── */
+var MANDATORY = [
+  { id: 'm1', name: 'Fiche de suivi du document', desc: 'Identification, rédacteurs, date de validation, diffusion.' },
+  { id: 'm2', name: 'Introduction & contexte client', desc: 'Résumé du besoin, interlocuteurs, situation actuelle, enjeux.' },
+  { id: 'm3', name: 'Présentation de BleuLemon', desc: 'Qui sommes-nous, partenariat Atlassian Platinum, certifications, domaines d\'expertise.' },
+  { id: 'm4', name: 'Notre démarche', desc: 'Méthode itérative, phases Kickoff → Cadrage → Conception → Implémentation → Post-MEP.' },
+  { id: 'm5', name: 'Réponse au besoin', desc: 'Périmètre fonctionnel, ateliers, implémentation, tests, formations.' },
+  { id: 'm6', name: 'Conditions tarifaires', desc: 'TJM, estimation de charge, licences, facturation, conditions de paiement.' },
+];
+
+var OPTIONAL = [
+  { id: 'o1', name: 'Références significatives clients', desc: 'Cas REXEL, EDF solutions solaires et autres références actives.', enabled: true },
+  { id: 'o2', name: 'Détail licensing Atlassian', desc: 'Service Collection Free / Standard / Premium / Enterprise.', enabled: true },
+  { id: 'o3', name: 'Conduite du changement', desc: 'Formations agents, administrateurs, Assets. Cahier de paramétrage. Post-MEP.', enabled: true },
+  { id: 'o4', name: 'Macro-planning', desc: 'Gantt indicatif, jalons clés, répartition de charge BL vs client.', enabled: false },
+  { id: 'o5', name: 'Organisation projet', desc: 'Rôles BleuLemon et rôles attendus côté client (sponsor, chef de projet).', enabled: false },
+  { id: 'o6', name: 'Prérequis techniques', desc: 'Instance Atlassian, droits admin, accès SSO/LDAP requis avant démarrage.', enabled: false },
+  { id: 'o7', name: 'Cybersécurité BleuLemon', desc: 'Démarche sécurité SI, score CyberVadis, partenaire ACI Technology.', enabled: false },
+  { id: 'o8', name: 'Teamwork Collection', desc: 'Présentation de l\'offre complémentaire Jira + Confluence + Loom + Rovo.', enabled: false },
+  { id: 'o9', name: 'Lots futurs envisageables', desc: 'Évolutions non prioritaires à ce stade : base de connaissance, chatbot, gestion des actifs, etc.', enabled: true },
+];
+
+/* ── Reference library ──────────────────────────────────────── */
+var LIBRARY = [
+  {
+    icon: '🏭', bg: '#E1F5EE', client: 'REXEL', tags: 'ITSM · Intégration · Multi-pays',
+    desc: 'Portail JSM multi-pays pour le support opérationnel. Intégration EasyVista, ITracing, SecureWorks. Incident & Change Management.',
+    context: 'REXEL est distributeur mondial de matériel électrique. Le département IT HQ avait besoin d\'un portail client pour gérer les demandes d\'infrastructure. Résultats : portail GISP devenu le projet JSM le plus utilisé chez Rexel, réutilisé dans plusieurs pays.'
+  },
+  {
+    icon: '⚡', bg: '#E6F1FB', client: 'EDF solutions solaires', tags: 'Migration · Assets · SSO',
+    desc: 'Migration EasyVista → Jira Service Management Data Center puis Cloud. Intégration SCCM, Azure AD, Intune avec Assets. SSO LDAP.',
+    context: 'EDF solutions solaires est une filiale EDF spécialisée dans les panneaux solaires. Croissance +25%/an, besoin de scalabilité. Premier projet très bien accueilli, déployé dans plusieurs directions métiers (RH, IOT, QSE).'
+  },
+  {
+    icon: '🚂', bg: '#FAEEDA', client: 'SNCF Connect & Tech', tags: 'Agile · SAFe · Jira',
+    desc: 'Transformation Agile à l\'échelle SAFe. Mise en place Jira Software et Confluence pour les équipes produit. Coaching agile.',
+    context: 'Accompagnement dans la mise en œuvre de SAFe (Scaled Agile Framework). Formation des équipes et mise en place des outils de pilotage.'
+  },
+  {
+    icon: '🔵', bg: '#EEEDFE', client: 'CMA CGM', tags: 'Migration Cloud · 2025',
+    desc: 'Migration Data Center → Cloud Atlassian. Mise en place de la gouvernance et du provisioning utilisateurs.',
+    context: 'Groupe de transport maritime international. Migration complexe avec enjeux de conformité et de résidence des données.'
+  },
+  {
+    icon: '🏦', bg: '#FCEBEB', client: 'BRED Banque Populaire', tags: 'ESM · Confluence · Agile',
+    desc: 'ESM multi-directions. Documentation Confluence. Agile@scale pour les équipes IT.',
+    context: 'Banque de réseau. Déploiement ESM pour les directions IT, RH et Juridique.'
+  },
+  {
+    icon: '✈️', bg: '#EAF3DE', client: 'SAFRAN', tags: 'ITSM · Jira · 2023',
+    desc: 'Mise en place Jira Service Management pour le support IT interne. Formation des administrateurs et agents.',
+    context: 'Groupe aéronautique. Mise en place d\'un centre de services structuré avec SLA et tableaux de bord.'
+  },
+];
+
+/* ════════════════════════════════════════════════════════════════
+   NAVIGATION
+════════════════════════════════════════════════════════════════ */
+function goStep(n) {
+  if (n === state.step) return;
+  if (n === 2) buildSections();
+  if (n === 3) { buildBriefSummary(); buildPrompt(); }
+  if (n === 4) startGeneration();
+  if (n === 6) buildLibrary();
+
+  document.getElementById('panel-' + state.step).classList.remove('active');
+  document.getElementById('panel-' + n).classList.add('active');
+
+  for (var i = 1; i <= 6; i++) {
+    var nav = document.getElementById('nav-' + i);
+    if (!nav) continue;
+    nav.classList.remove('active', 'done');
+    var num = nav.querySelector('.nav-num');
+    if (i < n) { nav.classList.add('done'); num.innerHTML = '✓'; }
+    else if (i === n) { nav.classList.add('active'); num.innerHTML = i; }
+    else { num.innerHTML = i; }
+  }
+
+  document.getElementById('topbar-title').textContent = STEP_TITLES[n];
+  document.getElementById('topbar-sub').textContent = STEP_SUBS[n];
+  state.step = n;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL 1 HELPERS
+════════════════════════════════════════════════════════════════ */
+document.querySelectorAll('#project-types .tag').forEach(function(t) {
+  t.addEventListener('click', function() {
+    var v = this.dataset.val;
+    this.classList.toggle('selected');
+    var idx = state.selectedTypes.indexOf(v);
+    if (idx > -1) state.selectedTypes.splice(idx, 1);
+    else state.selectedTypes.push(v);
+  });
+});
+
+function setLang(l) {
+  state.lang = l;
+  document.getElementById('lang-fr').classList.toggle('active', l === 'fr');
+  document.getElementById('lang-en').classList.toggle('active', l === 'en');
+}
+
+function checkApiKey() {
+  var key = document.getElementById('api-key').value.trim();
+  var dot = document.getElementById('api-dot');
+  var txt = document.getElementById('api-status-text');
+  var hint = document.getElementById('key-hint');
+  if (key.startsWith('sk-ant-')) {
+    dot.className = 'api-dot ok';
+    txt.textContent = 'Clé valide';
+    hint.textContent = '✓';
+    hint.style.color = 'var(--teal)';
+  } else if (key.length > 5) {
+    dot.className = 'api-dot error';
+    txt.textContent = 'Format invalide';
+    hint.textContent = 'Format: sk-ant-...';
+    hint.style.color = '#E24B4A';
+  } else {
+    dot.className = 'api-dot';
+    txt.textContent = 'API non configurée';
+    hint.textContent = 'Requis pour générer';
+    hint.style.color = 'var(--gray-400)';
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL 2 — SECTIONS
+════════════════════════════════════════════════════════════════ */
+function buildSections() {
+  var mEl = document.getElementById('mandatory-sections');
+  var oEl = document.getElementById('optional-sections');
+  if (mEl.children.length) return; // already built
+
+  MANDATORY.forEach(function(s) {
+    var d = document.createElement('div');
+    d.className = 'section-card';
+    d.innerHTML =
+      '<div class="section-card-header">' +
+        '<div class="section-card-info">' +
+          '<span class="section-card-name">' + s.name + '</span>' +
+          '<span class="badge badge-required">Obligatoire</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="section-card-desc">' + s.desc + '</div>';
+    mEl.appendChild(d);
+  });
+
+  OPTIONAL.forEach(function(s) {
+    var d = document.createElement('div');
+    d.className = 'section-card';
+    d.innerHTML =
+      '<div class="section-card-header">' +
+        '<div class="section-card-info">' +
+          '<span class="section-card-name">' + s.name + '</span>' +
+          '<span class="badge badge-optional">Optionnel</span>' +
+        '</div>' +
+        '<label class="toggle-switch">' +
+          '<input type="checkbox" id="opt-' + s.id + '"' + (s.enabled ? ' checked' : '') + '>' +
+          '<div class="toggle-track"></div>' +
+        '</label>' +
+      '</div>' +
+      '<div class="section-card-desc">' + s.desc + '</div>';
+    oEl.appendChild(d);
+  });
+}
+
+function getActiveSections() {
+  var sections = MANDATORY.map(function(s) { return s.name; });
+  OPTIONAL.forEach(function(s) {
+    var el = document.getElementById('opt-' + s.id);
+    if (el && el.checked) sections.push(s.name);
+  });
+  return sections;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL 3 — PROMPT
+════════════════════════════════════════════════════════════════ */
+function buildBriefSummary() {
+  var client = v('f-client') || '—';
+  var types = state.selectedTypes.length ? state.selectedTypes.map(function(t) {
+    return t.split(' ')[0];
+  }).join(', ') : '—';
+  var sections = getActiveSections().length;
+  var lang = state.lang === 'fr' ? 'Français' : 'English';
+  var size = v('f-size') || '—';
+
+  document.getElementById('brief-summary').innerHTML = [
+    { label: 'Client', value: client },
+    { label: 'Projet', value: types.substring(0, 28) + (types.length > 28 ? '…' : '') },
+    { label: 'Taille', value: size.split(' ')[0] || '—' },
+    { label: 'Sections', value: sections + ' sections' },
+    { label: 'Langue', value: lang },
+    { label: 'TJM standard', value: '900 €/j HT' },
+  ].map(function(c) {
+    return '<div class="info-card"><div class="info-card-label">' + c.label + '</div><div class="info-card-value">' + c.value + '</div></div>';
+  }).join('');
+}
+
+function buildPrompt() {
+  var client  = v('f-client')   || '[Nom du client]';
+  var sector  = v('f-sector')   || '[Secteur]';
+  var contact = v('f-contact')  || '[Interlocuteur]';
+  var size    = v('f-size')     || '[Taille]';
+  var context = v('f-context')  || '[Contexte à décrire]';
+  var budget  = v('f-budget')   || 'non communiqué';
+  var deadline= v('f-deadline') || 'non communiqué';
+  var types   = state.selectedTypes.length ? state.selectedTypes.join(', ') : '[Type de projet]';
+  var lang    = state.lang === 'fr' ? 'français' : 'English';
+  var sections= getActiveSections();
+
+  var prompt =
+'Tu es un consultant senior de BleuLemon, cabinet de conseil et de formation IT basé à Paris et Lyon.\n' +
+'BleuLemon est Partenaire Atlassian Platinum depuis 2015, spécialisé ITSM (depuis juin 2023) et Cloud (depuis mars 2024).\n\n' +
+'Rédige une proposition commerciale professionnelle complète en ' + lang + ' pour le client suivant.\n\n' +
+'══ BRIEF CLIENT ══════════════════════════════════\n' +
+'Client         : ' + client + '\n' +
+'Secteur        : ' + sector + '\n' +
+'Taille         : ' + size + '\n' +
+'Interlocuteur  : ' + contact + '\n' +
+'Type(s) projet : ' + types + '\n' +
+'Budget indicatif: ' + budget + '\n' +
+'Délai souhaité : ' + deadline + '\n' +
+'Contexte/Besoin:\n' + context + '\n\n' +
+'══ STRUCTURE DE LA PROPOSITION ═════════════════\n';
+
+  sections.forEach(function(s, i) {
+    prompt += (i + 1) + '. ' + s + '\n';
+  });
+
+  prompt +=
+'\n══ INSTRUCTIONS DE RÉDACTION ══════════════════\n' +
+'Ton : professionnel, orienté résultats, co-construction, jamais commercial agressif.\n' +
+'Style : phrases courtes, structure claire, titres hiérarchiques.\n' +
+'Inclure :\n' +
+'  – Des références clients similaires (REXEL, EDF solutions solaires si pertinent)\n' +
+'  – Une estimation de charge réaliste (TJM BleuLemon : 900 €/j HT)\n' +
+'  – Les bonnes pratiques ITSM / ITIL et l\'approche itérative de BleuLemon\n' +
+'  – La démarche de conduite du changement et d\'autonomisation du client\n' +
+'  – Les niveaux de licence Atlassian Service Collection si pertinent\n' +
+'Conditions de paiement standard : 30 jours date de facture.\n' +
+'La proposition doit être valable 30 jours.\n' +
+'Format de sortie : texte structuré avec titres ##, sous-titres ###, listes à puces.\n' +
+'Longueur cible : proposition complète et détaillée (~1 500 à 2 500 mots).';
+
+  document.getElementById('prompt-display').innerHTML = formatPrompt(prompt);
+  state._lastPrompt = prompt;
+  return prompt;
+}
+
+function formatPrompt(p) {
+  return p
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/(══[^═]+══[^\n]*)/g, '<span class="hl">$1</span>')
+    .replace(/(Client|Secteur|Taille|Interlocuteur|Type\(s\)|Budget|Délai|Contexte)\s*:/g, '<span class="key">$1 :</span>')
+    .replace(/\n/g, '<br>');
+}
+
+function copyPrompt() {
+  var txt = state._lastPrompt || buildPrompt().replace(/<[^>]+>/g, '');
+  copyToClipboard(txt);
+  flash(event.target, 'Copié !');
+}
+
+function downloadPrompt() {
+  download('bleulemon_prompt.txt', state._lastPrompt || '');
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL 4 — GÉNÉRATION IA
+════════════════════════════════════════════════════════════════ */
+var generationDone = false;
+
+function startGeneration() {
+  generationDone = false;
+  state.generatedText = '';
+  var fill = document.getElementById('progress-fill');
+  var spinner = document.getElementById('spinner');
+  var statusTxt = document.getElementById('status-text');
+  var streamBox = document.getElementById('streaming-box');
+  var btnRow = document.getElementById('gen-btn-row');
+
+  fill.style.width = '0%';
+  spinner.style.display = 'inline-block';
+  statusTxt.textContent = 'Connexion à l\'API Anthropic…';
+  streamBox.style.display = 'none';
+  streamBox.textContent = '';
+  btnRow.style.display = 'none';
+
+  var apiKey = document.getElementById('api-key').value.trim();
+  var prompt = state._lastPrompt || buildPrompt();
+
+  if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+    spinner.style.display = 'none';
+    statusTxt.textContent = '⚠️ Clé API manquante ou invalide. Renseignez une clé Anthropic valide à l\'étape 1.';
+    fill.style.width = '0%';
+    return;
+  }
+
+  fill.style.width = '15%';
+  statusTxt.textContent = 'Envoi du prompt à Claude…';
+
+  callAnthropicAPI(apiKey, prompt, function onChunk(chunk) {
+    if (!streamBox.style.display || streamBox.style.display === 'none') {
+      streamBox.style.display = 'block';
+    }
+    state.generatedText += chunk;
+    streamBox.textContent = state.generatedText;
+    streamBox.scrollTop = streamBox.scrollHeight;
+
+    var progress = Math.min(15 + (state.generatedText.length / 30), 92);
+    fill.style.width = progress + '%';
+    statusTxt.textContent = 'Génération en cours… (' + state.generatedText.length + ' caractères)';
+
+  }, function onDone() {
+    fill.style.width = '100%';
+    spinner.style.display = 'none';
+    statusTxt.textContent = '✓ Proposition générée avec succès (' + state.generatedText.length + ' caractères)';
+    btnRow.style.display = 'flex';
+    generationDone = true;
+    buildResultBlocks();
+  }, function onError(err) {
+    fill.style.width = '0%';
+    spinner.style.display = 'none';
+    statusTxt.textContent = '✗ Erreur : ' + err;
+    btnRow.style.display = 'flex';
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ANTHROPIC API CALL (streaming)
+════════════════════════════════════════════════════════════════ */
+function callAnthropicAPI(apiKey, prompt, onChunk, onDone, onError) {
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      stream: true,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  })
+  .then(function(res) {
+    if (!res.ok) {
+      return res.json().then(function(e) {
+        onError((e.error && e.error.message) || ('HTTP ' + res.status));
+      });
+    }
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+
+    function read() {
+      reader.read().then(function(result) {
+        if (result.done) { onDone(); return; }
+        buffer += decoder.decode(result.value, { stream: true });
+        var lines = buffer.split('\n');
+        buffer = lines.pop();
+        lines.forEach(function(line) {
+          if (!line.startsWith('data: ')) return;
+          var data = line.slice(6).trim();
+          if (data === '[DONE]') return;
+          try {
+            var parsed = JSON.parse(data);
+            if (parsed.type === 'content_block_delta' && parsed.delta && parsed.delta.text) {
+              onChunk(parsed.delta.text);
+            }
+          } catch(e) {}
+        });
+        read();
+      }).catch(function(err) { onError(err.message); });
+    }
+    read();
+  })
+  .catch(function(err) { onError(err.message); });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL 5 — RÉSULTAT
+════════════════════════════════════════════════════════════════ */
+function buildResultBlocks() {
+  var text = state.generatedText;
+  var container = document.getElementById('result-blocks');
+  container.innerHTML = '';
+
+  if (!text) {
+    container.innerHTML = '<div class="hint"><span class="hint-icon">⚠️</span><span>Aucune proposition générée. Revenez à l\'étape 4.</span></div>';
+    return;
+  }
+
+  // Split by ## headings
+  var sections = text.split(/(?=^##\s)/m);
+
+  if (sections.length <= 1) {
+    // No headings — show full text in one block
+    var block = document.createElement('div');
+    block.className = 'result-section';
+    block.innerHTML =
+      '<div class="result-section-header"><span class="result-section-title">Proposition complète</span><span class="pill-ok">Généré</span></div>' +
+      '<div class="result-section-body">' + mdToHtml(text) + '</div>';
+    container.appendChild(block);
+    return;
+  }
+
+  sections.forEach(function(sec, i) {
+    if (!sec.trim()) return;
+    var lines = sec.trim().split('\n');
+    var title = lines[0].replace(/^##\s*/, '').trim();
+    var body = lines.slice(1).join('\n').trim();
+    var block = document.createElement('div');
+    block.className = 'result-section';
+    block.innerHTML =
+      '<div class="result-section-header">' +
+        '<span class="result-section-title">' + escHtml(title) + '</span>' +
+        '<span class="pill-ok">Généré</span>' +
+      '</div>' +
+      '<div class="result-section-body">' + mdToHtml(body) + '</div>';
+    container.appendChild(block);
+  });
+}
+
+function mdToHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/^###\s(.+)$/gm, '<h4 style="font-size:14px;font-weight:600;margin:12px 0 6px;">$1</h4>')
+    .replace(/^##\s(.+)$/gm, '<h3 style="font-size:15px;font-weight:600;margin:14px 0 8px;">$1</h3>')
+    .replace(/^- (.+)$/gm, '<li style="margin-left:16px;list-style:disc;">$1</li>')
+    .replace(/(<li[^>]*>.*<\/li>)/gs, '<ul style="margin:6px 0;">$1</ul>')
+    .replace(/\n{2,}/g, '</p><p>')
+    .replace(/\n/g, '<br>')
+    .replace(/^/, '<p>').replace(/$/, '</p>');
+}
+
+function downloadResult() {
+  download('bleulemon_proposition_' + (v('f-client') || 'client').replace(/\s+/g,'_') + '.txt', state.generatedText);
+}
+
+function copyResult() {
+  copyToClipboard(state.generatedText);
+  flash(event.target, 'Copié !');
+}
+
+function regenerate() { goStep(4); }
+
+function translateResult() {
+  var apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey.startsWith('sk-ant-')) { alert('Clé API requise.'); return; }
+  var btn = document.getElementById('btn-translate');
+  btn.disabled = true;
+  btn.textContent = 'Traduction en cours…';
+
+  callAnthropicAPI(apiKey,
+    'Translate the following French commercial proposal into professional English. Keep the same structure, headings, tone, and all specific names (BleuLemon, Atlassian, client names). Output clean formatted text with ## headings.\n\n' + state.generatedText,
+    function(chunk) { state.translatedText += chunk; },
+    function() {
+      btn.disabled = false;
+      btn.textContent = '⬇ Télécharger EN';
+      btn.onclick = function() { download('bleulemon_proposal_EN.txt', state.translatedText); };
+    },
+    function(err) { btn.disabled = false; btn.textContent = '✗ Erreur: ' + err; }
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL 6 — LIBRARY
+════════════════════════════════════════════════════════════════ */
+function buildLibrary() {
+  var grid = document.getElementById('lib-grid');
+  grid.innerHTML = '';
+  LIBRARY.forEach(function(ref) {
+    var card = document.createElement('div');
+    card.className = 'lib-card';
+    card.innerHTML =
+      '<div class="lib-card-head">' +
+        '<div class="lib-icon" style="background:' + ref.bg + ';">' + ref.icon + '</div>' +
+        '<div><div class="lib-title">' + ref.client + '</div><div class="lib-tags">' + ref.tags + '</div></div>' +
+      '</div>' +
+      '<div class="lib-desc">' + ref.desc + '</div>';
+    card.onclick = function() { injectRef(ref); };
+    grid.appendChild(card);
+  });
+}
+
+function injectRef(ref) {
+  var ctx = document.getElementById('f-context');
+  var existing = ctx.value;
+  var append = '\n\n[Référence similaire : ' + ref.client + ' — ' + ref.context + ']';
+  ctx.value = (existing + append).trim();
+  goStep(1);
+}
+
+function addLibEntry() {
+  var client = v('lib-new-client');
+  var tags   = v('lib-new-tags');
+  var desc   = v('lib-new-desc');
+  if (!client) { alert('Nom du client requis.'); return; }
+  LIBRARY.push({ icon: '📁', bg: '#F1F0E9', client: client, tags: tags, desc: desc, context: desc });
+  document.getElementById('lib-new-client').value = '';
+  document.getElementById('lib-new-tags').value = '';
+  document.getElementById('lib-new-desc').value = '';
+  buildLibrary();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   UTILS
+════════════════════════════════════════════════════════════════ */
+function v(id) {
+  var el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).catch(function() { fallbackCopy(text); });
+  } else { fallbackCopy(text); }
+}
+
+function fallbackCopy(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
+
+function download(filename, content) {
+  var blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function flash(btn, msg) {
+  var orig = btn.textContent;
+  btn.textContent = msg;
+  setTimeout(function() { btn.textContent = orig; }, 1500);
+}
+</script>
+</body>
+</html>

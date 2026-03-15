@@ -24,6 +24,6 @@ node_modules/
 
 ```
 bleulemon-proposal-generator/
-├── index.html         ← الأداة كاملة
-├── README.md          ← شرح المشروع
-└── .gitignore         ← ملفات محظورة
+├── index.html         ←  
+├── README.md          ←  
+└── .gitignore         ←  

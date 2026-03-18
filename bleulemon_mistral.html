@@ -1,0 +1,1982 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BleuLemon — Générateur de Propositions Commerciales</title>
+<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:       #1a2744;
+  --navy-light: #2a3a5e;
+  --teal:       #1D9E75;
+  --teal-mid:   #5DCAA5;
+  --teal-light: #E1F5EE;
+  --teal-dark:  #085041;
+  --gray-50:    #F8F9FA;
+  --gray-100:   #F1F0E9;
+  --gray-200:   #E0DFDA;
+  --gray-400:   #9B9A95;
+  --gray-600:   #5F5E5A;
+  --gray-900:   #1C1C1A;
+  --white:      #FFFFFF;
+  --border:     rgba(0,0,0,0.10);
+  --border-md:  rgba(0,0,0,0.18);
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.08);
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --font:       'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono:  'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--gray-50);
+  color: var(--gray-900);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.sidebar {
+  background: var(--navy);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar-logo {
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.logo-box { display: flex; align-items: center; gap: 10px; }
+
+.logo-icon {
+  width: 36px; height: 36px;
+  background: var(--teal);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-text { font-size: 15px; font-weight: 600; }
+.logo-sub  { font-size: 11px; opacity: 0.55; margin-top: 2px; }
+
+.sidebar-nav { padding: 16px 12px; flex: 1; }
+
+.nav-label {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  padding: 0 12px; margin-bottom: 6px; margin-top: 16px;
+}
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: background 0.15s;
+  font-size: 14px; color: rgba(255,255,255,0.65);
+  user-select: none;
+}
+
+.nav-item:hover { background: rgba(255,255,255,0.07); color: white; }
+.nav-item.active { background: rgba(29,158,117,0.2); color: var(--teal-mid); font-weight: 500; }
+.nav-item.done { color: rgba(255,255,255,0.45); }
+.nav-item.done .nav-num { background: var(--teal-dark); color: var(--teal-light); }
+
+.nav-num {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; flex-shrink: 0;
+}
+
+.nav-item.active .nav-num { background: var(--teal); color: white; }
+
+.sidebar-footer {
+  padding: 16px 24px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  font-size: 12px; color: rgba(255,255,255,0.3);
+}
+
+/* ── Main ────────────────────────────────────────────────────── */
+.main { display: flex; flex-direction: column; min-height: 100vh; }
+
+.topbar {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 10;
+}
+
+.topbar-title { font-size: 16px; font-weight: 600; color: var(--gray-900); }
+.topbar-sub   { font-size: 13px; color: var(--gray-400); margin-top: 1px; }
+
+.api-status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gray-600); }
+
+.api-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--gray-200); transition: background 0.3s;
+}
+.api-dot.ok    { background: var(--teal); }
+.api-dot.error { background: #E24B4A; }
+
+.content-area { padding: 32px; flex: 1; }
+
+/* ── Panels ──────────────────────────────────────────────────── */
+.panel { display: none; animation: fadeIn 0.2s ease; }
+.panel.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.section-title { font-size: 18px; font-weight: 600; color: var(--gray-900); margin-bottom: 4px; }
+.section-desc  { font-size: 14px; color: var(--gray-400); margin-bottom: 24px; }
+
+.field-label {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--gray-400); margin-bottom: 10px;
+}
+
+/* ── Form ────────────────────────────────────────────────────── */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.full { grid-column: 1 / -1; }
+label { font-size: 13px; font-weight: 500; color: var(--gray-600); }
+
+input[type="text"], input[type="password"], select, textarea {
+  padding: 9px 12px;
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius-sm);
+  font-family: var(--font); font-size: 14px;
+  color: var(--gray-900); background: var(--white);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(29,158,117,0.12);
+}
+
+textarea { resize: vertical; min-height: 90px; line-height: 1.55; }
+
+/* ── API Key card ────────────────────────────────────────────── */
+.api-key-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px; margin-bottom: 24px;
+  display: flex; align-items: center; gap: 12px;
+}
+.api-key-card input { flex: 1; }
+
+/* ── Tags ────────────────────────────────────────────────────── */
+.tag-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+
+.tag {
+  padding: 6px 14px; border-radius: 100px; font-size: 13px;
+  border: 1px solid var(--border-md); cursor: pointer;
+  background: var(--white); color: var(--gray-600);
+  transition: all 0.15s; user-select: none;
+}
+.tag:hover { border-color: var(--teal); color: var(--teal-dark); background: var(--teal-light); }
+.tag.selected { background: var(--teal-light); border-color: var(--teal-mid); color: var(--teal-dark); font-weight: 500; }
+
+/* ── Toggle ──────────────────────────────────────────────────── */
+.toggle-switch { position: relative; width: 38px; height: 22px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+.toggle-track {
+  position: absolute; inset: 0;
+  background: var(--gray-200); border-radius: 11px;
+  cursor: pointer; transition: 0.2s;
+}
+.toggle-track::before {
+  content: ''; position: absolute;
+  width: 16px; height: 16px; left: 3px; top: 3px;
+  background: white; border-radius: 50%;
+  transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.toggle-switch input:checked + .toggle-track { background: var(--teal); }
+.toggle-switch input:checked + .toggle-track::before { transform: translateX(16px); }
+
+/* ── Section cards ───────────────────────────────────────────── */
+.section-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 14px 18px;
+  margin-bottom: 8px; transition: border-color 0.15s;
+}
+.section-card:hover { border-color: var(--border-md); }
+.section-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.section-card-info   { display: flex; align-items: center; gap: 8px; flex: 1; }
+.section-card-name   { font-size: 14px; font-weight: 500; }
+.section-card-desc   { font-size: 13px; color: var(--gray-400); margin-top: 6px; }
+
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 100px; font-weight: 500; }
+.badge-required { background: var(--teal-light); color: var(--teal-dark); }
+.badge-optional { background: var(--gray-100);   color: var(--gray-600); }
+
+/* ── Prompt box ──────────────────────────────────────────────── */
+.prompt-box {
+  background: var(--gray-900); color: #9FE1CB;
+  border-radius: var(--radius-md); padding: 20px 24px;
+  font-family: var(--font-mono); font-size: 13px;
+  line-height: 1.65; white-space: pre-wrap; word-break: break-word;
+  max-height: 340px; overflow-y: auto; margin-bottom: 16px;
+}
+.prompt-box .hl  { color: #FAC775; }
+.prompt-box .key { color: #85B7EB; }
+
+/* ── Info cards ──────────────────────────────────────────────── */
+.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+.info-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 12px 16px;
+}
+.info-card-label { font-size: 11px; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.info-card-value { font-size: 15px; font-weight: 600; color: var(--gray-900); }
+
+/* ── Progress bar ────────────────────────────────────────────── */
+.progress-wrap { background: var(--gray-100); border-radius: 4px; height: 4px; overflow: hidden; margin-bottom: 20px; }
+.progress-fill { height: 100%; background: var(--teal); border-radius: 4px; width: 0%; transition: width 0.35s ease; }
+
+/* ── Status ──────────────────────────────────────────────────── */
+.status-msg {
+  font-size: 13px; color: var(--gray-400);
+  margin-bottom: 16px; min-height: 20px;
+  display: flex; align-items: center; gap: 8px;
+}
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid var(--gray-200); border-top-color: var(--teal);
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+  display: none; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Result blocks ───────────────────────────────────────────── */
+.result-section { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 10px; overflow: hidden; }
+.result-section-header { background: var(--gray-50); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
+.result-section-title  { font-size: 13px; font-weight: 600; color: var(--gray-900); }
+.result-section-body   { padding: 14px 16px; font-size: 14px; color: var(--gray-600); line-height: 1.7; }
+.result-section-body p { margin-bottom: 8px; }
+.result-section-body p:last-child { margin-bottom: 0; }
+
+.pill-ok { background: var(--teal-light); color: var(--teal-dark); font-size: 11px; padding: 3px 10px; border-radius: 100px; font-weight: 500; }
+
+/* ── Reference library ───────────────────────────────────────── */
+.lib-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+.lib-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 12px 16px;
+  cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.lib-card:hover { border-color: var(--teal-mid); box-shadow: var(--shadow-sm); }
+.lib-card-head  { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.lib-icon       { width: 32px; height: 32px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.lib-title      { font-size: 14px; font-weight: 600; }
+.lib-tags       { font-size: 12px; color: var(--gray-400); }
+.lib-desc       { font-size: 13px; color: var(--gray-600); }
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.btn-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+
+.btn {
+  padding: 9px 20px; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 500; cursor: pointer;
+  transition: all 0.15s; font-family: var(--font);
+  border: 1px solid var(--border-md);
+  background: var(--white); color: var(--gray-900);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:hover   { background: var(--gray-50); }
+.btn:active  { transform: scale(0.98); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.btn-primary      { background: var(--navy);  color: white; border-color: var(--navy); }
+.btn-primary:hover { background: var(--navy-light); }
+
+.btn-teal         { background: var(--teal); color: white; border-color: var(--teal); font-size: 15px; padding: 10px 28px; }
+.btn-teal:hover   { opacity: 0.88; }
+
+.btn-outline-teal { border-color: var(--teal-mid); color: var(--teal-dark); }
+.btn-outline-teal:hover { background: var(--teal-light); }
+
+/* ── Lang toggle ─────────────────────────────────────────────── */
+.lang-toggle { display: inline-flex; border: 1px solid var(--border-md); border-radius: var(--radius-sm); overflow: hidden; }
+.lang-btn {
+  padding: 7px 18px; font-size: 13px; font-weight: 500;
+  cursor: pointer; background: transparent; border: none;
+  font-family: var(--font); color: var(--gray-400); transition: all 0.15s;
+}
+.lang-btn.active { background: var(--navy); color: white; }
+
+/* ── Hint ────────────────────────────────────────────────────── */
+.hint {
+  background: var(--teal-light); border: 1px solid var(--teal-mid);
+  border-radius: var(--radius-md); padding: 12px 16px;
+  font-size: 13px; color: var(--teal-dark);
+  margin-bottom: 20px; display: flex; gap: 10px;
+}
+.hint-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+.divider { height: 1px; background: var(--border); margin: 24px 0; }
+
+/* ── Output box ──────────────────────────────────────────────── */
+.output-box {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 20px 24px;
+  font-size: 14px; color: var(--gray-900); line-height: 1.75;
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 600px; overflow-y: auto; margin-bottom: 16px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .app-shell     { grid-template-columns: 1fr; }
+  .sidebar       { position: static; height: auto; }
+  .form-grid     { grid-template-columns: 1fr; }
+  .info-grid     { grid-template-columns: 1fr 1fr; }
+  .lib-grid      { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ── SIDEBAR ──────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-box">
+        <div class="logo-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="2"  width="7"  height="5" rx="1" fill="white"/>
+            <rect x="2" y="9"  width="16" height="3" rx="1" fill="#9FE1CB"/>
+            <rect x="2" y="14" width="12" height="3" rx="1" fill="white" opacity="0.65"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-text">BleuLemon</div>
+          <div class="logo-sub">Proposal Generator · Mistral AI</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workflow</div>
+      <div class="nav-item active" id="nav-1" onclick="goStep(1)"><div class="nav-num">1</div><span>Brief client</span></div>
+      <div class="nav-item"        id="nav-2" onclick="goStep(2)"><div class="nav-num">2</div><span>Structure</span></div>
+      <div class="nav-item"        id="nav-3" onclick="goStep(3)"><div class="nav-num">3</div><span>Prompt généré</span></div>
+      <div class="nav-item"        id="nav-4" onclick="goStep(4)"><div class="nav-num">4</div><span>Génération IA</span></div>
+      <div class="nav-item"        id="nav-5" onclick="goStep(5)"><div class="nav-num">5</div><span>Résultat final</span></div>
+      <div class="nav-label" style="margin-top:28px;">Bibliothèque</div>
+      <div class="nav-item"        id="nav-6" onclick="goStep(6)"><div class="nav-num">★</div><span>Références clients</span></div>
+    </nav>
+
+    <div class="sidebar-footer">
+      v1.1 · PFE IAE Lyon 2026<br>BleuLemon · Powered by Mistral AI
+    </div>
+  </aside>
+
+  <!-- ── MAIN ─────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="topbar-title">Brief client</div>
+        <div class="topbar-sub"   id="topbar-sub">Renseignez les informations du client et du projet</div>
+      </div>
+      <div class="api-status">
+        <button onclick="newProposal()" id="btn-new-proposal"
+          style="padding:7px 16px;border-radius:6px;border:1px solid var(--border-md);
+                 background:var(--white);color:var(--gray-900);font-size:13px;font-weight:500;
+                 cursor:pointer;font-family:var(--font);margin-right:16px;transition:all 0.15s;
+                 display:flex;align-items:center;gap:6px;">
+          + New Proposal
+        </button>
+        <div class="lang-toggle" style="margin-right:12px;">
+          <button class="lang-btn active" id="ui-lang-fr" onclick="setUiLang('fr')">FR</button>
+          <button class="lang-btn"        id="ui-lang-en" onclick="setUiLang('en')">EN</button>
+        </div>
+        <div class="api-dot" id="api-dot"></div>
+        <span id="api-status-text">Clé Mistral requise</span>
+      </div>
+    </div>
+
+    <div class="content-area">
+
+      <!-- ── PANEL 1 : BRIEF ────────────────────────────────── -->
+      <div id="panel-1" class="panel active">
+        <div class="section-title">Informations client & projet</div>
+        <div class="section-desc">Complétez le brief — ces données alimenteront le prompt IA.</div>
+
+        <div class="field-label">Clé API Mistral AI</div>
+        <div class="api-key-card">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9B9A95" stroke-width="1.8">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <input type="password" id="api-key"
+                 placeholder="Votre clé Mistral AI..."
+                 style="flex:1;" oninput="checkApiKey()" />
+          <span id="key-hint" style="font-size:12px;color:var(--gray-400);white-space:nowrap;">
+            Obtenez une clé sur console.mistral.ai
+          </span>
+        </div>
+
+        <div class="field-label">Client</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nom du client</label>
+            <input type="text" id="f-client" placeholder="ex. CORPIOT" />
+          </div>
+          <div class="form-group">
+            <label>Secteur d'activité</label>
+            <select id="f-sector">
+              <option value="">— Sélectionner —</option>
+              <option>IT / Technologie</option>
+              <option>Industrie</option>
+              <option>Banque / Finance</option>
+              <option>Énergie / Utilities</option>
+              <option>Retail / Distribution</option>
+              <option>Santé / Pharma</option>
+              <option>Transport / Logistique</option>
+              <option>Secteur public</option>
+              <option>Autre</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Interlocuteur principal</label>
+            <input type="text" id="f-contact" placeholder="ex. José DUPONT, Directeur des Ops" />
+          </div>
+          <div class="form-group">
+            <label>Taille entreprise</label>
+            <select id="f-size">
+              <option value="">— Sélectionner —</option>
+              <option>TPE / Startup (< 50)</option>
+              <option>PME (50 – 250)</option>
+              <option>ETI (250 – 5 000)</option>
+              <option>Grand compte (> 5 000)</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Contexte & besoin principal</label>
+            <textarea id="f-context" rows="4"
+              placeholder="Décrivez le problème à résoudre, la situation actuelle, les outils en place, les enjeux clés..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Budget indicatif (€ HT)</label>
+            <input type="text" id="f-budget" placeholder="ex. 25 000 €" />
+          </div>
+          <div class="form-group">
+            <label>Délai souhaité</label>
+            <input type="text" id="f-deadline" placeholder="ex. Q2 2026, 3 mois" />
+          </div>
+        </div>
+
+        <div class="field-label">Type(s) de projet</div>
+        <div class="tag-grid" id="project-types">
+          <span class="tag" data-val="Migration Cloud Atlassian">Migration Cloud</span>
+          <span class="tag" data-val="Implémentation Jira Service Management">Implémentation JSM</span>
+          <span class="tag" data-val="ITSM / Gestion des services IT">ITSM</span>
+          <span class="tag" data-val="ESM / Gestion des services d'entreprise">ESM</span>
+          <span class="tag" data-val="Coaching Agile / SAFe">Agile Coaching</span>
+          <span class="tag" data-val="Formation Atlassian">Formation</span>
+          <span class="tag" data-val="Licensing Atlassian">Licensing</span>
+          <span class="tag" data-val="DevOps">DevOps</span>
+          <span class="tag" data-val="Run / TMA Atlassian">Run / TMA</span>
+          <span class="tag" data-val="Gestion des actifs (Assets / CMDB)">Assets / CMDB</span>
+          <span class="tag" data-val="Reprise de données">Reprise de données</span>
+          <span class="tag" data-val="Intégration SSO / LDAP">SSO / LDAP</span>
+        </div>
+
+        <div class="field-label">Langue de sortie</div>
+        <div class="lang-toggle" style="margin-bottom:24px;">
+          <button class="lang-btn active" id="lang-fr" onclick="setLang('fr')">Français</button>
+          <button class="lang-btn"        id="lang-en" onclick="setLang('en')">English</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="goStep(2)">Suivant : Structure →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 2 : STRUCTURE ────────────────────────────── -->
+      <div id="panel-2" class="panel">
+        <div class="section-title">Structure de la proposition</div>
+        <div class="section-desc">Activez ou désactivez les sections selon le contexte du projet.</div>
+
+        <div class="hint">
+          <span class="hint-icon">💡</span>
+          <span>Les sections <strong>obligatoires</strong> sont toujours incluses. Activez les optionnelles selon le projet.</span>
+        </div>
+
+        <div class="field-label">Sections obligatoires</div>
+        <div id="mandatory-sections"></div>
+        <div class="divider"></div>
+        <div class="field-label">Sections optionnelles</div>
+        <div id="optional-sections"></div>
+
+        <div class="btn-row">
+          <button class="btn"             onclick="goStep(1)">← Retour</button>
+          <button class="btn btn-primary" onclick="goStep(3)">Suivant : Prompt →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 3 : PROMPT ──────────────────────────────── -->
+      <div id="panel-3" class="panel">
+        <div class="section-title">Prompt généré</div>
+        <div class="section-desc">Prompt prêt à l'emploi — copiez-le ou générez directement.</div>
+
+        <div class="field-label">Récapitulatif du brief</div>
+        <div class="info-grid" id="brief-summary"></div>
+
+        <div class="field-label">Prompt système</div>
+        <div class="prompt-box" id="prompt-display"></div>
+
+        <div style="display:flex;gap:10px;margin-bottom:4px;">
+          <button class="btn btn-outline-teal" onclick="copyPrompt()">📋 Copier le prompt</button>
+          <button class="btn btn-outline-teal" onclick="downloadPrompt()">⬇ Télécharger .txt</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn"          onclick="goStep(2)">← Retour</button>
+          <button class="btn btn-teal" onclick="goStep(4)">Générer la proposition →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 4 : GÉNÉRATION ───────────────────────────── -->
+      <div id="panel-4" class="panel">
+        <div class="section-title">Génération IA en cours</div>
+        <div class="section-desc">Mistral AI rédige votre proposition commerciale…</div>
+
+        <div class="progress-wrap">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+
+        <div class="status-msg">
+          <div class="spinner" id="spinner"></div>
+          <span id="status-text">En attente…</span>
+        </div>
+
+        <div class="output-box" id="streaming-box" style="display:none;"></div>
+
+        <div class="btn-row" id="gen-btn-row" style="display:none;">
+          <button class="btn"             onclick="goStep(3)">← Modifier le prompt</button>
+          <button class="btn btn-primary" onclick="goStep(5)">Voir le résultat structuré →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 5 : RÉSULTAT ────────────────────────────── -->
+      <div id="panel-5" class="panel">
+        <div class="section-title">Proposition commerciale générée</div>
+        <div class="section-desc">Relisez, ajustez et téléchargez votre proposition.</div>
+
+        <div id="result-blocks"></div>
+        <div class="divider"></div>
+
+        <div class="field-label">Actions</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+          <button class="btn btn-outline-teal" onclick="downloadResult()">⬇ Télécharger .txt</button>
+          <button class="btn btn-outline-teal" onclick="downloadPDF()"    id="btn-pdf">🖨 Exporter PDF</button>
+          <button class="btn btn-outline-teal" onclick="downloadWord()"   id="btn-word">📄 Exporter Word</button>
+          <button class="btn btn-outline-teal" onclick="copyResult()">📋 Copier le texte</button>
+          <button class="btn btn-primary"      onclick="translateResult()" id="btn-translate">🌐 Traduire en anglais</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn"          onclick="goStep(3)">← Modifier le brief</button>
+          <button class="btn btn-teal" onclick="regenerate()">Régénérer →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 6 : BIBLIOTHÈQUE ────────────────────────── -->
+      <div id="panel-6" class="panel">
+        <div class="section-title">Bibliothèque de références clients</div>
+        <div class="section-desc">Cliquez sur une référence pour l'injecter dans votre brief.</div>
+
+        <div class="lib-grid" id="lib-grid"></div>
+        <div class="divider"></div>
+
+        <div class="field-label">Ajouter une référence</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nom du client</label>
+            <input type="text" id="lib-new-client" placeholder="ex. Safran" />
+          </div>
+          <div class="form-group">
+            <label>Tags</label>
+            <input type="text" id="lib-new-tags" placeholder="ex. Migration, Cloud, JSM" />
+          </div>
+          <div class="form-group full">
+            <label>Description du projet</label>
+            <textarea id="lib-new-desc" rows="2"
+              placeholder="Décrivez le projet et les résultats obtenus..."></textarea>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="addLibEntry()">+ Ajouter à la bibliothèque</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════════════════ */
+var state = {
+  step: 1,
+  lang: 'fr',
+  uiLang: 'fr',
+  selectedTypes: [],
+  generatedText: '',
+  translatedText: ''
+};
+
+/* ════════════════════════════════════════════════════════════════
+   BILINGUAL UI TRANSLATIONS
+════════════════════════════════════════════════════════════════ */
+var T = {
+  fr: {
+    step_titles: ['','Brief client','Structure','Prompt généré','Génération IA','Résultat final','Bibliothèque'],
+    step_subs: ['',
+      'Renseignez les informations du client et du projet',
+      'Choisissez les sections à inclure dans la proposition',
+      'Vérifiez et copiez le prompt système généré',
+      'Mistral AI rédige votre proposition commerciale',
+      'Relisez, téléchargez et traduisez la proposition',
+      'Gérez votre bibliothèque de références clients'],
+    nav_workflow: 'Workflow',
+    nav_library:  'Bibliothèque',
+    nav_refs:     'Références clients',
+    logo_sub:     'Proposal Generator · Mistral AI',
+    footer:       'PFE IAE Lyon 2026 · BleuLemon · Mistral AI',
+    api_label:    'Clé API Mistral AI',
+    api_placeholder: 'Votre clé Mistral AI...',
+    api_hint:     'Obtenez une clé sur console.mistral.ai',
+    api_valid:    'Clé Mistral valide',
+    api_short:    'Clé trop courte',
+    api_required: 'Clé Mistral requise',
+    api_ready:    '✓ Prêt à générer',
+    api_check:    'Vérifiez votre clé sur console.mistral.ai',
+    p1_title:     'Informations client & projet',
+    p1_desc:      'Complétez le brief — ces données alimenteront le prompt IA.',
+    client_label: 'Client',
+    f_client:     'Nom du client',
+    f_client_ph:  'ex. CORPIOT',
+    f_sector:     'Secteur d\'activité',
+    f_contact:    'Interlocuteur principal',
+    f_contact_ph: 'ex. José DUPONT, Directeur des Ops',
+    f_size:       'Taille entreprise',
+    f_context:    'Contexte & besoin principal',
+    f_context_ph: 'Décrivez le problème à résoudre, la situation actuelle, les outils en place, les enjeux clés...',
+    f_budget:     'Budget indicatif (€ HT)',
+    f_budget_ph:  'ex. 25 000 €',
+    f_deadline:   'Délai souhaité',
+    f_deadline_ph:'ex. Q2 2026, 3 mois',
+    proj_label:   'Type(s) de projet',
+    lang_label:   'Langue de sortie',
+    btn_next_struct: 'Suivant : Structure →',
+    p2_title:     'Structure de la proposition',
+    p2_desc:      'Activez ou désactivez les sections selon le contexte du projet.',
+    p2_hint:      'Les sections <strong>obligatoires</strong> sont toujours incluses. Activez les optionnelles selon le projet.',
+    mandatory_label: 'Sections obligatoires',
+    optional_label:  'Sections optionnelles',
+    badge_req:    'Obligatoire',
+    badge_opt:    'Optionnel',
+    btn_back:     '← Retour',
+    btn_next_prompt: 'Suivant : Prompt →',
+    p3_title:     'Prompt généré',
+    p3_desc:      'Prompt prêt à l\'emploi — copiez-le ou générez directement.',
+    brief_summary_label: 'Récapitulatif du brief',
+    prompt_label: 'Prompt système',
+    btn_copy_prompt: '📋 Copier le prompt',
+    btn_dl_prompt:   '⬇ Télécharger .txt',
+    btn_generate: 'Générer la proposition →',
+    p4_title:     'Génération IA en cours',
+    p4_desc:      'Mistral AI rédige votre proposition commerciale…',
+    status_wait:  'En attente…',
+    status_connecting: 'Connexion à Mistral AI…',
+    status_sending: 'Envoi du prompt à Mistral AI…',
+    status_generating: 'Génération en cours…',
+    status_done:  '✓ Proposition générée',
+    status_missing_key: '⚠️ Clé Mistral manquante. Renseignez votre clé à l\'étape 1.',
+    btn_edit_prompt: '← Modifier le prompt',
+    btn_see_result:  'Voir le résultat structuré →',
+    p5_title:     'Proposition commerciale générée',
+    p5_desc:      'Relisez, ajustez et téléchargez votre proposition.',
+    actions_label:'Actions',
+    btn_dl_txt:   '⬇ Télécharger .txt',
+    btn_dl_pdf:   '🖨 Exporter PDF',
+    btn_dl_word:  '📄 Exporter Word',
+    btn_copy_text:'📋 Copier le texte',
+    btn_translate:'🌐 Traduire en anglais',
+    btn_translating: 'Traduction en cours…',
+    btn_dl_en:    '⬇ Télécharger EN',
+    btn_edit_brief: '← Modifier le brief',
+    btn_regen:    'Régénérer →',
+    p6_title:     'Bibliothèque de références clients',
+    p6_desc:      'Cliquez sur une référence pour l\'injecter dans votre brief.',
+    add_ref_label:'Ajouter une référence',
+    f_ref_client: 'Nom du client',
+    f_ref_client_ph: 'ex. Safran',
+    f_ref_tags:   'Tags',
+    f_ref_tags_ph:'ex. Migration, Cloud, JSM',
+    f_ref_desc:   'Description du projet',
+    f_ref_desc_ph:'Décrivez le projet et les résultats obtenus...',
+    btn_add_ref:  '+ Ajouter à la bibliothèque',
+    ref_injected: '✓ Référence injectée dans le brief',
+    ref_inject_btn:'Injecter dans le brief',
+    info_client:  'Client',
+    info_project: 'Projet',
+    info_size:    'Taille',
+    info_sections:'Sections',
+    info_lang:    'Langue',
+    info_tjm:     'TJM standard',
+    pill_generated:'Généré',
+    copied:       'Copié !',
+    pdf_generating:'⏳ Génération PDF…',
+    word_generating:'⏳ Génération Word…',
+    word_loading: '⏳ Chargement…',
+    err_word:     '✗ Erreur Word',
+    err_net:      '✗ Erreur réseau',
+    err_api:      '✗ Erreur : ',
+    translate_error: 'Clé Mistral requise pour la traduction.',
+    no_proposal:  'Aucune proposition générée. Revenez à l\'étape 4.',
+    client_req:   'Nom du client requis.',
+    select_ph:    '— Sélectionner —',
+    sector_opts:  ['IT / Technologie','Industrie','Banque / Finance','Énergie / Utilities','Retail / Distribution','Santé / Pharma','Transport / Logistique','Secteur public','Autre'],
+    size_opts:    ['TPE / Startup (< 50)','PME (50 – 250)','ETI (250 – 5 000)','Grand compte (> 5 000)'],
+    tag_labels:   ['Migration Cloud','Implémentation JSM','ITSM','ESM','Agile Coaching','Formation','Licensing','DevOps','Run / TMA','Assets / CMDB','Reprise de données','SSO / LDAP'],
+    output_lang_fr: 'Français', output_lang_en: 'English',
+    cover_title:  'Proposition Commerciale',
+    cover_partner:'BleuLemon · Atlassian Platinum Partner',
+    footer_conf:  'BleuLemon · Confidentiel · ',
+    footer_powered:' · Powered by Mistral AI',
+  },
+  en: {
+    step_titles: ['','Client Brief','Structure','Generated Prompt','AI Generation','Final Result','Library'],
+    step_subs: ['',
+      'Fill in the client and project information',
+      'Choose the sections to include in the proposal',
+      'Review and copy the generated system prompt',
+      'Mistral AI is writing your commercial proposal',
+      'Review, download and translate the proposal',
+      'Manage your client reference library'],
+    nav_workflow: 'Workflow',
+    nav_library:  'Library',
+    nav_refs:     'Client References',
+    logo_sub:     'Proposal Generator · Mistral AI',
+    footer:       'PFE IAE Lyon 2026 · BleuLemon · Mistral AI',
+    api_label:    'Mistral AI API Key',
+    api_placeholder: 'Your Mistral AI key...',
+    api_hint:     'Get a key at console.mistral.ai',
+    api_valid:    'Valid Mistral key',
+    api_short:    'Key too short',
+    api_required: 'Mistral key required',
+    api_ready:    '✓ Ready to generate',
+    api_check:    'Check your key at console.mistral.ai',
+    p1_title:     'Client & Project Information',
+    p1_desc:      'Fill in the brief — this data will feed the AI prompt.',
+    client_label: 'Client',
+    f_client:     'Client name',
+    f_client_ph:  'e.g. CORPIOT',
+    f_sector:     'Industry sector',
+    f_contact:    'Main contact',
+    f_contact_ph: 'e.g. José DUPONT, Operations Director',
+    f_size:       'Company size',
+    f_context:    'Context & main need',
+    f_context_ph: 'Describe the problem to solve, current situation, tools in place, key challenges...',
+    f_budget:     'Indicative budget (€ excl. tax)',
+    f_budget_ph:  'e.g. 25,000 €',
+    f_deadline:   'Target deadline',
+    f_deadline_ph:'e.g. Q2 2026, 3 months',
+    proj_label:   'Project type(s)',
+    lang_label:   'Output language',
+    btn_next_struct: 'Next: Structure →',
+    p2_title:     'Proposal Structure',
+    p2_desc:      'Enable or disable sections depending on the project context.',
+    p2_hint:      '<strong>Mandatory</strong> sections are always included. Toggle optional ones per project.',
+    mandatory_label: 'Mandatory sections',
+    optional_label:  'Optional sections',
+    badge_req:    'Mandatory',
+    badge_opt:    'Optional',
+    btn_back:     '← Back',
+    btn_next_prompt: 'Next: Prompt →',
+    p3_title:     'Generated Prompt',
+    p3_desc:      'System prompt ready to use — copy it or generate directly.',
+    brief_summary_label: 'Brief summary',
+    prompt_label: 'System prompt',
+    btn_copy_prompt: '📋 Copy prompt',
+    btn_dl_prompt:   '⬇ Download .txt',
+    btn_generate: 'Generate proposal →',
+    p4_title:     'AI Generation in progress',
+    p4_desc:      'Mistral AI is writing your commercial proposal…',
+    status_wait:  'Waiting…',
+    status_connecting: 'Connecting to Mistral AI…',
+    status_sending: 'Sending prompt to Mistral AI…',
+    status_generating: 'Generating…',
+    status_done:  '✓ Proposal generated',
+    status_missing_key: '⚠️ Mistral key missing. Add your key in step 1.',
+    btn_edit_prompt: '← Edit prompt',
+    btn_see_result:  'View structured result →',
+    p5_title:     'Generated Commercial Proposal',
+    p5_desc:      'Review, adjust and download your proposal.',
+    actions_label:'Actions',
+    btn_dl_txt:   '⬇ Download .txt',
+    btn_dl_pdf:   '🖨 Export PDF',
+    btn_dl_word:  '📄 Export Word',
+    btn_copy_text:'📋 Copy text',
+    btn_translate:'🌐 Translate to French',
+    btn_translating: 'Translating…',
+    btn_dl_en:    '⬇ Download FR',
+    btn_edit_brief: '← Edit brief',
+    btn_regen:    'Regenerate →',
+    p6_title:     'Client Reference Library',
+    p6_desc:      'Click a reference to inject it into your brief.',
+    add_ref_label:'Add a reference',
+    f_ref_client: 'Client name',
+    f_ref_client_ph: 'e.g. Safran',
+    f_ref_tags:   'Tags',
+    f_ref_tags_ph:'e.g. Migration, Cloud, JSM',
+    f_ref_desc:   'Project description',
+    f_ref_desc_ph:'Describe the project and results obtained...',
+    btn_add_ref:  '+ Add to library',
+    ref_injected: '✓ Reference injected into brief',
+    ref_inject_btn:'Inject into brief',
+    info_client:  'Client',
+    info_project: 'Project',
+    info_size:    'Size',
+    info_sections:'Sections',
+    info_lang:    'Language',
+    info_tjm:     'Standard rate',
+    pill_generated:'Generated',
+    copied:       'Copied!',
+    pdf_generating:'⏳ Generating PDF…',
+    word_generating:'⏳ Generating Word…',
+    word_loading: '⏳ Loading…',
+    err_word:     '✗ Word error',
+    err_net:      '✗ Network error',
+    err_api:      '✗ Error: ',
+    translate_error: 'Mistral key required for translation.',
+    no_proposal:  'No proposal generated. Go back to step 4.',
+    client_req:   'Client name required.',
+    select_ph:    '— Select —',
+    sector_opts:  ['IT / Technology','Industry','Banking / Finance','Energy / Utilities','Retail / Distribution','Healthcare / Pharma','Transport / Logistics','Public sector','Other'],
+    size_opts:    ['Startup (< 50)','SME (50 – 250)','Mid-size (250 – 5,000)','Large enterprise (> 5,000)'],
+    tag_labels:   ['Cloud Migration','JSM Implementation','ITSM','ESM','Agile Coaching','Training','Licensing','DevOps','Run / TMA','Assets / CMDB','Data Migration','SSO / LDAP'],
+    output_lang_fr: 'French', output_lang_en: 'English',
+    cover_title:  'Commercial Proposal',
+    cover_partner:'BleuLemon · Atlassian Platinum Partner',
+    footer_conf:  'BleuLemon · Confidential · ',
+    footer_powered:' · Powered by Mistral AI',
+  }
+};
+
+var STEP_TITLES = T.fr.step_titles;
+var STEP_SUBS   = T.fr.step_subs;
+
+/* ── Sections ─────────────────────────────────────────────── */
+var MANDATORY = [
+  { id:'m1', name:'Fiche de suivi du document',    desc:'Identification, rédacteurs, date de validation, diffusion.' },
+  { id:'m2', name:'Introduction & contexte client',desc:'Résumé du besoin, interlocuteurs, situation actuelle, enjeux.' },
+  { id:'m3', name:'Présentation de BleuLemon',     desc:'Partenariat Atlassian Platinum, certifications, domaines d\'expertise.' },
+  { id:'m4', name:'Notre démarche',                desc:'Méthode itérative : Kickoff → Cadrage → Conception → Implémentation → Post-MEP.' },
+  { id:'m5', name:'Réponse au besoin',             desc:'Périmètre fonctionnel, ateliers, implémentation, tests, formations.' },
+  { id:'m6', name:'Conditions tarifaires',         desc:'TJM, estimation de charge, licences, facturation, conditions de paiement.' },
+];
+
+var OPTIONAL = [
+  { id:'o1', name:'Références significatives clients', desc:'Cas REXEL, EDF solutions solaires et autres références actives.',       enabled:true  },
+  { id:'o2', name:'Détail licensing Atlassian',        desc:'Service Collection Free / Standard / Premium / Enterprise.',            enabled:true  },
+  { id:'o3', name:'Conduite du changement',            desc:'Formations agents, administrateurs, Assets. Cahier de paramétrage.',    enabled:true  },
+  { id:'o4', name:'Macro-planning',                    desc:'Gantt indicatif, jalons clés, répartition de charge BL vs client.',    enabled:false },
+  { id:'o5', name:'Organisation projet',               desc:'Rôles BleuLemon et rôles attendus côté client.',                       enabled:false },
+  { id:'o6', name:'Prérequis techniques',              desc:'Instance Atlassian, droits admin, accès SSO/LDAP requis.',             enabled:false },
+  { id:'o7', name:'Cybersécurité BleuLemon',           desc:'Démarche sécurité SI, score CyberVadis, partenaire ACI Technology.',   enabled:false },
+  { id:'o8', name:'Teamwork Collection',               desc:'Offre complémentaire Jira + Confluence + Loom + Rovo.',                enabled:false },
+  { id:'o9', name:'Lots futurs envisageables',         desc:'Évolutions non prioritaires : base de connaissance, chatbot, etc.',    enabled:true  },
+];
+
+/* ── Reference library ───────────────────────────────────── */
+var LIBRARY = [
+  { icon:'🏭', bg:'#E1F5EE', client:'REXEL',               tags:'ITSM · Intégration · Multi-pays',
+    desc:'Portail JSM multi-pays. Intégration EasyVista, ITracing, SecureWorks. Incident & Change Management.',
+    context:'REXEL est distributeur mondial de matériel électrique. Portail GISP devenu le projet JSM le plus utilisé chez Rexel, réutilisé dans plusieurs pays.' },
+  { icon:'⚡', bg:'#E6F1FB', client:'EDF solutions solaires', tags:'Migration · Assets · SSO',
+    desc:'Migration EasyVista → JSM Data Center puis Cloud. Intégration SCCM, Azure AD, Intune avec Assets.',
+    context:'Filiale EDF spécialisée panneaux solaires. Croissance +25%/an. Premier projet très bien accueilli, déployé dans plusieurs directions métiers (RH, IOT, QSE).' },
+  { icon:'🚂', bg:'#FAEEDA', client:'SNCF Connect & Tech',   tags:'Agile · SAFe · Jira',
+    desc:'Transformation Agile à l\'échelle SAFe. Mise en place Jira Software et Confluence.',
+    context:'Accompagnement SAFe (Scaled Agile Framework). Formation des équipes et mise en place des outils de pilotage.' },
+  { icon:'🔵', bg:'#EEEDFE', client:'CMA CGM',               tags:'Migration Cloud · 2025',
+    desc:'Migration Data Center → Cloud Atlassian. Gouvernance et provisioning utilisateurs.',
+    context:'Groupe de transport maritime international. Migration complexe avec enjeux de conformité et résidence des données.' },
+  { icon:'🏦', bg:'#FCEBEB', client:'BRED Banque Populaire',  tags:'ESM · Confluence · Agile',
+    desc:'ESM multi-directions. Documentation Confluence. Agile@scale pour les équipes IT.',
+    context:'Banque de réseau. Déploiement ESM pour les directions IT, RH et Juridique.' },
+  { icon:'✈️', bg:'#EAF3DE', client:'SAFRAN',                 tags:'ITSM · Jira · 2023',
+    desc:'Mise en place JSM pour le support IT interne. Formation des administrateurs et agents.',
+    context:'Groupe aéronautique. Centre de services structuré avec SLA et tableaux de bord.' },
+];
+
+/* ════════════════════════════════════════════════════════════════
+   NAVIGATION
+════════════════════════════════════════════════════════════════ */
+function goStep(n) {
+  if (n === state.step) return;
+  if (n === 2) buildSections();
+  if (n === 3) { buildBriefSummary(); buildPrompt(); }
+  if (n === 4) startGeneration();
+  if (n === 6) buildLibrary();
+
+  document.getElementById('panel-' + state.step).classList.remove('active');
+  document.getElementById('panel-' + n).classList.add('active');
+
+  for (var i = 1; i <= 6; i++) {
+    var nav = document.getElementById('nav-' + i);
+    if (!nav) continue;
+    nav.classList.remove('active', 'done');
+    var num = nav.querySelector('.nav-num');
+    if      (i < n)  { nav.classList.add('done');   num.innerHTML = '✓'; }
+    else if (i === n) { nav.classList.add('active'); num.innerHTML = i;  }
+    else              { num.innerHTML = i; }
+  }
+
+  document.getElementById('topbar-title').textContent = STEP_TITLES[n];
+  document.getElementById('topbar-sub').textContent   = STEP_SUBS[n];
+  state.step = n;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   NEW PROPOSAL — resets everything except API key
+════════════════════════════════════════════════════════════════ */
+function newProposal() {
+  var tl  = T[state.uiLang] || T.fr;
+  var msg = state.uiLang === 'en'
+    ? 'Start a new proposal? All current data will be cleared.\nYour API key will be kept.'
+    : 'Commencer une nouvelle proposition ? Toutes les données seront effacées.\nVotre clé API sera conservée.';
+
+  if (!confirm(msg)) return;
+
+  /* Save the API key */
+  var savedKey = document.getElementById('api-key')
+    ? document.getElementById('api-key').value
+    : '';
+
+  /* Reset state */
+  state.step           = 1;
+  state.lang           = 'fr';
+  state.selectedTypes  = [];
+  state.generatedText  = '';
+  state.translatedText = '';
+  state.injectedRefs   = [];
+  state._lastPrompt    = '';
+
+  /* Clear all form fields */
+  ['f-client','f-contact','f-context','f-budget','f-deadline'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  var sector = document.getElementById('f-sector');
+  if (sector) sector.selectedIndex = 0;
+  var size = document.getElementById('f-size');
+  if (size) size.selectedIndex = 0;
+
+  /* Restore API key */
+  var keyEl = document.getElementById('api-key');
+  if (keyEl) keyEl.value = savedKey;
+
+  /* Clear project type tags */
+  document.querySelectorAll('#project-types .tag').forEach(function(t) {
+    t.classList.remove('selected');
+  });
+
+  /* Reset output language to FR */
+  state.lang = 'fr';
+  document.getElementById('lang-fr').classList.add('active');
+  document.getElementById('lang-en').classList.remove('active');
+
+  /* Clear result blocks and streaming box */
+  var rb = document.getElementById('result-blocks');
+  if (rb) rb.innerHTML = '';
+  var sb = document.getElementById('streaming-box');
+  if (sb) { sb.textContent = ''; sb.style.display = 'none'; }
+
+  /* Reset sections (rebuild from scratch next time) */
+  var ms = document.getElementById('mandatory-sections');
+  var os = document.getElementById('optional-sections');
+  if (ms) ms.innerHTML = '';
+  if (os) os.innerHTML = '';
+
+  /* Reset progress */
+  var fill = document.getElementById('progress-fill');
+  if (fill) fill.style.width = '0%';
+  var statusTxt = document.getElementById('status-text');
+  if (statusTxt) statusTxt.textContent = tl.status_wait;
+  var btnRow = document.getElementById('gen-btn-row');
+  if (btnRow) btnRow.style.display = 'none';
+
+  /* Reset translate button */
+  var trBtn = document.getElementById('btn-translate');
+  if (trBtn) {
+    trBtn.textContent = tl.btn_translate;
+    trBtn.disabled    = false;
+    trBtn.onclick     = translateResult;
+  }
+
+  /* Navigate to step 1 */
+  document.getElementById('panel-' + state.step).classList.remove('active');
+  document.getElementById('panel-1').classList.add('active');
+  state.step = 1;
+
+  for (var i = 1; i <= 6; i++) {
+    var nav = document.getElementById('nav-' + i);
+    if (!nav) continue;
+    nav.classList.remove('active', 'done');
+    var num = nav.querySelector('.nav-num');
+    if (num) num.innerHTML = i === 1 ? '1' : i;
+  }
+  document.getElementById('nav-1').classList.add('active');
+
+  document.getElementById('topbar-title').textContent = tl.step_titles[1];
+  document.getElementById('topbar-sub').textContent   = tl.step_subs[1];
+
+  /* Re-check API key status */
+  checkApiKey();
+}
+document.querySelectorAll('#project-types .tag').forEach(function(t) {
+  t.addEventListener('click', function() {
+    var val = this.dataset.val;
+    this.classList.toggle('selected');
+    var idx = state.selectedTypes.indexOf(val);
+    if (idx > -1) state.selectedTypes.splice(idx, 1);
+    else state.selectedTypes.push(val);
+  });
+});
+
+function setLang(l) {
+  state.lang = l;
+  document.getElementById('lang-fr').classList.toggle('active', l === 'fr');
+  document.getElementById('lang-en').classList.toggle('active', l === 'en');
+}
+
+/* ── UI Language switcher ───────────────────────────────────── */
+function setUiLang(l) {
+  state.uiLang = l;
+  document.getElementById('ui-lang-fr').classList.toggle('active', l === 'fr');
+  document.getElementById('ui-lang-en').classList.toggle('active', l === 'en');
+  var t = T[l];
+
+  /* Sidebar */
+  document.querySelector('#nav-1 span').textContent = t.step_titles[1];
+  document.querySelector('#nav-2 span').textContent = t.step_titles[2];
+  document.querySelector('#nav-3 span').textContent = t.step_titles[3];
+  document.querySelector('#nav-4 span').textContent = t.step_titles[4];
+  document.querySelector('#nav-5 span').textContent = t.step_titles[5];
+  document.querySelector('#nav-6 span').textContent = t.nav_refs;
+  document.querySelectorAll('.nav-label')[0].textContent = t.nav_workflow;
+  document.querySelectorAll('.nav-label')[1].textContent = t.nav_library;
+  document.querySelector('.logo-sub').textContent = t.logo_sub;
+  document.querySelector('.sidebar-footer').innerHTML = 'v1.2 · ' + t.footer;
+
+  /* Topbar */
+  STEP_TITLES = t.step_titles;
+  STEP_SUBS   = t.step_subs;
+  document.getElementById('topbar-title').textContent = t.step_titles[state.step];
+  document.getElementById('topbar-sub').textContent   = t.step_subs[state.step];
+  document.getElementById('api-status-text').textContent = t.api_required;
+
+  /* Panel 1 */
+  document.querySelector('#panel-1 .section-title').textContent = t.p1_title;
+  document.querySelector('#panel-1 .section-desc').textContent  = t.p1_desc;
+  var fl = document.querySelectorAll('#panel-1 .field-label');
+  if (fl[0]) fl[0].textContent = t.api_label;
+  if (fl[1]) fl[1].textContent = t.client_label;
+  if (fl[2]) fl[2].textContent = t.proj_label;
+  if (fl[3]) fl[3].textContent = t.lang_label;
+  document.getElementById('api-key').placeholder = t.api_placeholder;
+  document.getElementById('key-hint').textContent = t.api_hint;
+  document.getElementById('f-client').placeholder = t.f_client_ph;
+  document.getElementById('f-contact').placeholder = t.f_contact_ph;
+  document.getElementById('f-context').placeholder = t.f_context_ph;
+  document.getElementById('f-budget').placeholder  = t.f_budget_ph;
+  document.getElementById('f-deadline').placeholder = t.f_deadline_ph;
+
+  /* Sector select */
+  var sel = document.getElementById('f-sector');
+  var cur = sel.value;
+  sel.options[0].text = t.select_ph;
+  t.sector_opts.forEach(function(opt, i) { if (sel.options[i+1]) sel.options[i+1].text = opt; });
+
+  /* Size select */
+  var sz = document.getElementById('f-size');
+  sz.options[0].text = t.select_ph;
+  t.size_opts.forEach(function(opt, i) { if (sz.options[i+1]) sz.options[i+1].text = opt; });
+
+  /* Labels */
+  var labels = document.querySelectorAll('#panel-1 label');
+  var lmap = [t.f_client, t.f_sector, t.f_contact, t.f_size, t.f_context, t.f_budget, t.f_deadline];
+  labels.forEach(function(lb, i) { if (lmap[i]) lb.textContent = lmap[i]; });
+
+  /* Tags */
+  var tags = document.querySelectorAll('#project-types .tag');
+  tags.forEach(function(tg, i) { if (t.tag_labels[i]) tg.textContent = t.tag_labels[i]; });
+
+  /* Output lang buttons */
+  document.getElementById('lang-fr').textContent = t.output_lang_fr;
+  document.getElementById('lang-en').textContent = t.output_lang_en;
+
+  /* Panel 1 button */
+  var p1btn = document.querySelector('#panel-1 .btn-primary');
+  if (p1btn) p1btn.textContent = t.btn_next_struct;
+
+  /* Panel 2 */
+  document.querySelector('#panel-2 .section-title').textContent = t.p2_title;
+  document.querySelector('#panel-2 .section-desc').textContent  = t.p2_desc;
+  var hintEl = document.querySelector('#panel-2 .hint span:last-child');
+  if (hintEl) hintEl.innerHTML = t.p2_hint;
+  var fl2 = document.querySelectorAll('#panel-2 .field-label');
+  if (fl2[0]) fl2[0].textContent = t.mandatory_label;
+  if (fl2[1]) fl2[1].textContent = t.optional_label;
+  var p2btns = document.querySelectorAll('#panel-2 .btn');
+  if (p2btns[0]) p2btns[0].textContent = t.btn_back;
+  if (p2btns[1]) p2btns[1].textContent = t.btn_next_prompt;
+
+  /* Panel 3 */
+  document.querySelector('#panel-3 .section-title').textContent = t.p3_title;
+  document.querySelector('#panel-3 .section-desc').textContent  = t.p3_desc;
+  var fl3 = document.querySelectorAll('#panel-3 .field-label');
+  if (fl3[0]) fl3[0].textContent = t.brief_summary_label;
+  if (fl3[1]) fl3[1].textContent = t.prompt_label;
+  var p3btns = document.querySelectorAll('#panel-3 .btn');
+  p3btns.forEach(function(b) {
+    if (b.textContent.indexOf('Copier') > -1 || b.textContent.indexOf('Copy') > -1) b.textContent = t.btn_copy_prompt;
+    if (b.textContent.indexOf('Télécharger') > -1 || b.textContent.indexOf('Download') > -1) b.textContent = t.btn_dl_prompt;
+    if (b.classList.contains('btn-teal')) b.textContent = t.btn_generate;
+    if (b.textContent === '← Retour' || b.textContent === '← Back') b.textContent = t.btn_back;
+  });
+
+  /* Panel 4 */
+  document.querySelector('#panel-4 .section-title').textContent = t.p4_title;
+  document.querySelector('#panel-4 .section-desc').textContent  = t.p4_desc;
+  var stTxt = document.getElementById('status-text');
+  if (stTxt && (stTxt.textContent === 'En attente…' || stTxt.textContent === 'Waiting…'))
+    stTxt.textContent = t.status_wait;
+
+  /* Panel 5 */
+  document.querySelector('#panel-5 .section-title').textContent = t.p5_title;
+  document.querySelector('#panel-5 .section-desc').textContent  = t.p5_desc;
+  var fl5 = document.querySelectorAll('#panel-5 .field-label');
+  if (fl5[0]) fl5[0].textContent = t.actions_label;
+  var dlTxt = document.getElementById('btn-pdf');
+  if (dlTxt) dlTxt.textContent = t.btn_dl_pdf;
+  var wdBtn = document.getElementById('btn-word');
+  if (wdBtn) wdBtn.textContent = t.btn_dl_word;
+  var trBtn = document.getElementById('btn-translate');
+  if (trBtn && (trBtn.textContent.indexOf('Traduire') > -1 || trBtn.textContent.indexOf('Translate') > -1))
+    trBtn.textContent = t.btn_translate;
+
+  /* Panel 6 */
+  document.querySelector('#panel-6 .section-title').textContent = t.p6_title;
+  document.querySelector('#panel-6 .section-desc').textContent  = t.p6_desc;
+  var fl6 = document.querySelectorAll('#panel-6 .field-label');
+  if (fl6[0]) fl6[0].textContent = t.add_ref_label;
+  document.getElementById('lib-new-client').placeholder = t.f_ref_client_ph;
+  document.getElementById('lib-new-tags').placeholder   = t.f_ref_tags_ph;
+  document.getElementById('lib-new-desc').placeholder   = t.f_ref_desc_ph;
+  var addBtn = document.querySelector('#panel-6 .btn-primary');
+  if (addBtn) addBtn.textContent = t.btn_add_ref;
+  var lib6labels = document.querySelectorAll('#panel-6 label');
+  var lmap6 = [t.f_ref_client, t.f_ref_tags, t.f_ref_desc];
+  lib6labels.forEach(function(lb, i) { if (lmap6[i]) lb.textContent = lmap6[i]; });
+
+  /* Rebuild library cards with new language */
+  if (document.getElementById('lib-grid').children.length > 0) buildLibrary();
+
+  checkApiKey();
+}
+
+function tr(key) { return (T[state.uiLang] || T.fr)[key] || key; }
+function checkApiKey() {
+  var key  = document.getElementById('api-key').value.trim();
+  var dot  = document.getElementById('api-dot');
+  var txt  = document.getElementById('api-status-text');
+  var hint = document.getElementById('key-hint');
+  var tl   = T[state.uiLang] || T.fr;
+  if (key.length >= 32) {
+    dot.className    = 'api-dot ok';
+    txt.textContent  = tl.api_valid;
+    hint.textContent = tl.api_ready;
+    hint.style.color = 'var(--teal)';
+  } else if (key.length > 0) {
+    dot.className    = 'api-dot error';
+    txt.textContent  = tl.api_short;
+    hint.textContent = tl.api_check;
+    hint.style.color = '#E24B4A';
+  } else {
+    dot.className    = 'api-dot';
+    txt.textContent  = tl.api_required;
+    hint.textContent = tl.api_hint;
+    hint.style.color = 'var(--gray-400)';
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL 2
+════════════════════════════════════════════════════════════════ */
+function buildSections() {
+  var mEl = document.getElementById('mandatory-sections');
+  var oEl = document.getElementById('optional-sections');
+  var tl  = T[state.uiLang] || T.fr;
+  mEl.innerHTML = '';
+  oEl.innerHTML = '';
+
+  MANDATORY.forEach(function(s) {
+    var d = document.createElement('div');
+    d.className = 'section-card';
+    d.innerHTML =
+      '<div class="section-card-header">' +
+        '<div class="section-card-info">' +
+          '<span class="section-card-name">' + s.name + '</span>' +
+          '<span class="badge badge-required">' + tl.badge_req + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="section-card-desc">' + s.desc + '</div>';
+    mEl.appendChild(d);
+  });
+
+  OPTIONAL.forEach(function(s) {
+    var d = document.createElement('div');
+    d.className = 'section-card';
+    d.innerHTML =
+      '<div class="section-card-header">' +
+        '<div class="section-card-info">' +
+          '<span class="section-card-name">' + s.name + '</span>' +
+          '<span class="badge badge-optional">' + tl.badge_opt + '</span>' +
+        '</div>' +
+        '<label class="toggle-switch">' +
+          '<input type="checkbox" id="opt-' + s.id + '"' + (s.enabled ? ' checked' : '') + '>' +
+          '<div class="toggle-track"></div>' +
+        '</label>' +
+      '</div>' +
+      '<div class="section-card-desc">' + s.desc + '</div>';
+    oEl.appendChild(d);
+  });
+}
+
+function getActiveSections() {
+  var sections = MANDATORY.map(function(s) { return s.name; });
+  OPTIONAL.forEach(function(s) {
+    var el = document.getElementById('opt-' + s.id);
+    if (el && el.checked) sections.push(s.name);
+  });
+  return sections;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL 3
+════════════════════════════════════════════════════════════════ */
+function buildBriefSummary() {
+  var client   = v('f-client') || '—';
+  var types    = state.selectedTypes.length ? state.selectedTypes.map(function(t) { return t.split(' ')[0]; }).join(', ') : '—';
+  var sections = getActiveSections().length;
+  var lang     = state.lang === 'fr' ? 'Français' : 'English';
+  var size     = v('f-size') || '—';
+
+  document.getElementById('brief-summary').innerHTML = [
+    { label:'Client',      value: client },
+    { label:'Projet',      value: types.substring(0,28) + (types.length > 28 ? '…':'') },
+    { label:'Taille',      value: size.split(' ')[0] || '—' },
+    { label:'Sections',    value: sections + ' sections' },
+    { label:'Langue',      value: lang },
+    { label:'TJM standard',value: '900 €/j HT' },
+  ].map(function(c) {
+    return '<div class="info-card">' +
+             '<div class="info-card-label">'  + c.label + '</div>' +
+             '<div class="info-card-value">'  + c.value + '</div>' +
+           '</div>';
+  }).join('');
+}
+
+function buildPrompt() {
+  var client   = v('f-client')   || '[Nom du client]';
+  var sector   = v('f-sector')   || '[Secteur]';
+  var contact  = v('f-contact')  || '[Interlocuteur]';
+  var size     = v('f-size')     || '[Taille]';
+  var context  = v('f-context')  || '[Contexte à décrire]';
+  var budget   = v('f-budget')   || 'non communiqué';
+  var deadline = v('f-deadline') || 'non communiqué';
+  var types    = state.selectedTypes.length ? state.selectedTypes.join(', ') : '[Type de projet]';
+  var lang     = state.lang === 'fr' ? 'français' : 'English';
+  var sections = getActiveSections();
+
+  var prompt =
+    'Tu es un consultant senior de BleuLemon, cabinet de conseil et de formation IT basé à Paris et Lyon.\n' +
+    'BleuLemon est Partenaire Atlassian Platinum depuis 2015, spécialisé ITSM (depuis juin 2023) et Cloud (depuis mars 2024).\n\n' +
+    'Rédige une proposition commerciale professionnelle complète en ' + lang + ' pour le client suivant.\n\n' +
+    '══ BRIEF CLIENT ══════════════════════════════════\n' +
+    'Client          : ' + client   + '\n' +
+    'Secteur         : ' + sector   + '\n' +
+    'Taille          : ' + size     + '\n' +
+    'Interlocuteur   : ' + contact  + '\n' +
+    'Type(s) projet  : ' + types    + '\n' +
+    'Budget indicatif: ' + budget   + '\n' +
+    'Délai souhaité  : ' + deadline + '\n' +
+    'Contexte/Besoin :\n' + context + '\n\n' +
+    '══ STRUCTURE DE LA PROPOSITION ═════════════════\n';
+
+  sections.forEach(function(s, i) { prompt += (i + 1) + '. ' + s + '\n'; });
+
+  prompt +=
+    '\n══ INSTRUCTIONS DE RÉDACTION ══════════════════\n' +
+    'Ton : professionnel, orienté résultats, co-construction, jamais commercial agressif.\n' +
+    'Style : phrases courtes, structure claire, titres hiérarchiques.\n' +
+    'Inclure :\n' +
+    '  – Des références clients similaires (REXEL, EDF solutions solaires si pertinent)\n' +
+    '  – Une estimation de charge réaliste (TJM BleuLemon : 900 €/j HT)\n' +
+    '  – Les bonnes pratiques ITSM / ITIL et l\'approche itérative de BleuLemon\n' +
+    '  – La démarche de conduite du changement et d\'autonomisation du client\n' +
+    '  – Les niveaux de licence Atlassian Service Collection si pertinent\n' +
+    'Conditions de paiement standard : 30 jours date de facture.\n' +
+    'La proposition doit être valable 30 jours.\n' +
+    'Format de sortie : texte structuré avec titres ##, sous-titres ###, listes à puces.\n' +
+    'Longueur cible : proposition complète et détaillée (~1 500 à 2 500 mots).';
+
+  document.getElementById('prompt-display').innerHTML = formatPrompt(prompt);
+  state._lastPrompt = prompt;
+  return prompt;
+}
+
+function formatPrompt(p) {
+  return p
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/(══[^═]+══[^\n]*)/g, '<span class="hl">$1</span>')
+    .replace(/(Client|Secteur|Taille|Interlocuteur|Type\(s\)|Budget|Délai|Contexte)\s*:/g, '<span class="key">$1 :</span>')
+    .replace(/\n/g,'<br>');
+}
+
+function copyPrompt()    { copyToClipboard(state._lastPrompt || ''); flash(event.target, 'Copié !'); }
+function downloadPrompt(){ download('bleulemon_prompt.txt', state._lastPrompt || ''); }
+
+/* ════════════════════════════════════════════════════════════════
+   FIX 2: Single clean Mistral API function (streaming)
+════════════════════════════════════════════════════════════════ */
+function callMistralAPI(apiKey, prompt, onChunk, onDone, onError) {
+  fetch('https://api.mistral.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': 'Bearer ' + apiKey          /* ← correct Mistral header */
+    },
+    body: JSON.stringify({
+      model:       'mistral-small-latest',
+      max_tokens:  4096,
+      temperature: 0.7,
+      stream:      true,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  })
+  .then(function(res) {
+    if (!res.ok) {
+      return res.json().then(function(e) {
+        onError((e.message) || ('Erreur HTTP ' + res.status));
+      });
+    }
+
+    var reader  = res.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer  = '';
+
+    function read() {
+      reader.read().then(function(result) {
+        if (result.done) { onDone(); return; }
+
+        buffer += decoder.decode(result.value, { stream: true });
+        var lines = buffer.split('\n');
+        buffer = lines.pop();                       /* keep incomplete line in buffer */
+
+        lines.forEach(function(line) {
+          line = line.trim();
+          if (!line || line === 'data: [DONE]') return;
+          if (!line.startsWith('data: '))       return;
+
+          try {
+            var parsed = JSON.parse(line.slice(6));  /* FIX 3: correct Mistral SSE format */
+            var delta  = parsed.choices && parsed.choices[0] && parsed.choices[0].delta;
+            if (delta && delta.content) {
+              onChunk(delta.content);
+            }
+          } catch(e) { /* ignore parse errors on incomplete chunks */ }
+        });
+
+        read();
+      }).catch(function(err) { onError(err.message); });
+    }
+
+    read();
+  })
+  .catch(function(err) { onError(err.message); });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL 4 — GÉNÉRATION
+════════════════════════════════════════════════════════════════ */
+function startGeneration() {
+  state.generatedText = '';
+
+  var fill      = document.getElementById('progress-fill');
+  var spinner   = document.getElementById('spinner');
+  var statusTxt = document.getElementById('status-text');
+  var streamBox = document.getElementById('streaming-box');
+  var btnRow    = document.getElementById('gen-btn-row');
+
+  var tl = T[state.uiLang] || T.fr;
+  fill.style.width      = '0%';
+  spinner.style.display = 'inline-block';
+  statusTxt.textContent = tl.status_connecting;
+  streamBox.style.display = 'none';
+  streamBox.textContent   = '';
+  btnRow.style.display    = 'none';
+
+  var apiKey = document.getElementById('api-key').value.trim();
+  var prompt = state._lastPrompt || buildPrompt();
+
+  if (!apiKey || apiKey.length < 32) {
+    spinner.style.display = 'none';
+    statusTxt.textContent = tl.status_missing_key;
+    fill.style.width = '0%';
+    return;
+  }
+
+  fill.style.width      = '15%';
+  statusTxt.textContent = tl.status_sending;
+
+  callMistralAPI(
+    apiKey,
+    prompt,
+    /* onChunk */ function(chunk) {
+      state.generatedText += chunk;
+      if (streamBox.style.display === 'none') streamBox.style.display = 'block';
+      streamBox.textContent = state.generatedText;
+      streamBox.scrollTop   = streamBox.scrollHeight;
+      var tl2 = T[state.uiLang] || T.fr;
+      var progress = Math.min(15 + (state.generatedText.length / 25), 92);
+      fill.style.width      = progress + '%';
+      statusTxt.textContent = tl2.status_generating + ' (' + state.generatedText.length + ' chars)';
+    },
+    /* onDone  */ function() {
+      var tl2 = T[state.uiLang] || T.fr;
+      fill.style.width      = '100%';
+      spinner.style.display = 'none';
+      statusTxt.textContent = tl2.status_done + ' (' + state.generatedText.length + ' chars)';
+      btnRow.style.display  = 'flex';
+      buildResultBlocks();
+    },
+    /* onError */ function(err) {
+      var tl2 = T[state.uiLang] || T.fr;
+      fill.style.width      = '0%';
+      spinner.style.display = 'none';
+      statusTxt.textContent = tl2.err_api + err;
+      btnRow.style.display  = 'flex';
+    }
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL 5 — RÉSULTAT
+════════════════════════════════════════════════════════════════ */
+function buildResultBlocks() {
+  var text      = state.generatedText;
+  var container = document.getElementById('result-blocks');
+  container.innerHTML = '';
+
+  if (!text) {
+    container.innerHTML = '<div class="hint"><span class="hint-icon">⚠️</span><span>Aucune proposition générée. Revenez à l\'étape 4.</span></div>';
+    return;
+  }
+
+  var sections = text.split(/(?=^##\s)/m);
+
+  if (sections.length <= 1) {
+    var block = document.createElement('div');
+    block.className = 'result-section';
+    block.innerHTML =
+      '<div class="result-section-header">' +
+        '<span class="result-section-title">Proposition complète</span>' +
+        '<span class="pill-ok">Généré</span>' +
+      '</div>' +
+      '<div class="result-section-body">' + mdToHtml(text) + '</div>';
+    container.appendChild(block);
+    return;
+  }
+
+  sections.forEach(function(sec) {
+    if (!sec.trim()) return;
+    var lines = sec.trim().split('\n');
+    var title = lines[0].replace(/^##\s*/, '').trim();
+    var body  = lines.slice(1).join('\n').trim();
+    var block = document.createElement('div');
+    block.className = 'result-section';
+    block.innerHTML =
+      '<div class="result-section-header">' +
+        '<span class="result-section-title">' + escHtml(title) + '</span>' +
+        '<span class="pill-ok">Généré</span>' +
+      '</div>' +
+      '<div class="result-section-body">' + mdToHtml(body) + '</div>';
+    container.appendChild(block);
+  });
+}
+
+function mdToHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g,     '<em>$1</em>')
+    .replace(/^###\s(.+)$/gm, '<h4 style="font-size:14px;font-weight:600;margin:12px 0 6px;">$1</h4>')
+    .replace(/^##\s(.+)$/gm,  '<h3 style="font-size:15px;font-weight:600;margin:14px 0 8px;">$1</h3>')
+    .replace(/^- (.+)$/gm,    '<li style="margin-left:16px;list-style:disc;">$1</li>')
+    .replace(/(<li[^>]*>.*<\/li>)/gs, '<ul style="margin:6px 0;">$1</ul>')
+    .replace(/\n{2,}/g, '</p><p>')
+    .replace(/\n/g, '<br>')
+    .replace(/^/, '<p>').replace(/$/, '</p>');
+}
+
+function downloadResult() {
+  download('bleulemon_proposition_' + (v('f-client') || 'client').replace(/\s+/g,'_') + '.txt', state.generatedText);
+}
+
+function copyResult() { copyToClipboard(state.generatedText); flash(event.target, 'Copié !'); }
+function regenerate() { goStep(4); }
+
+/* FIX 5: Correct key check for translate (Mistral) */
+function translateResult() {
+  var apiKey = document.getElementById('api-key').value.trim();
+  if (apiKey.length < 32) { alert('Clé Mistral requise pour la traduction.'); return; }
+
+  var btn = document.getElementById('btn-translate');
+  btn.disabled    = true;
+  btn.textContent = 'Traduction en cours…';
+  state.translatedText = '';
+
+  callMistralAPI(
+    apiKey,
+    'Translate the following French commercial proposal into professional English. ' +
+    'Keep the same structure, headings, tone, and all specific names (BleuLemon, Atlassian, client names). ' +
+    'Output clean formatted text with ## headings.\n\n' + state.generatedText,
+    function(chunk) { state.translatedText += chunk; },
+    function() {
+      btn.disabled    = false;
+      btn.textContent = '⬇ Télécharger EN';
+      btn.onclick     = function() { download('bleulemon_proposal_EN.txt', state.translatedText); };
+    },
+    function(err) {
+      btn.disabled    = false;
+      btn.textContent = '✗ Erreur : ' + err;
+    }
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL 6 — LIBRARY (fully functional)
+════════════════════════════════════════════════════════════════ */
+function buildLibrary() {
+  var grid = document.getElementById('lib-grid');
+  var tl   = T[state.uiLang] || T.fr;
+  grid.innerHTML = '';
+
+  LIBRARY.forEach(function(ref, idx) {
+    var isInjected = state.injectedRefs && state.injectedRefs.indexOf(ref.client) > -1;
+    var card = document.createElement('div');
+    card.className = 'lib-card';
+    card.style.cssText = 'position:relative;cursor:default;';
+    card.innerHTML =
+      '<div class="lib-card-head">' +
+        '<div class="lib-icon" style="background:' + ref.bg + ';">' + ref.icon + '</div>' +
+        '<div style="flex:1;">' +
+          '<div class="lib-title">' + ref.client + '</div>' +
+          '<div class="lib-tags">'  + ref.tags   + '</div>' +
+        '</div>' +
+        (isInjected ? '<span style="font-size:10px;background:var(--teal-light);color:var(--teal-dark);padding:2px 8px;border-radius:100px;font-weight:500;white-space:nowrap;">✓ ' + tl.ref_injected.split(' ').slice(1).join(' ') + '</span>' : '') +
+      '</div>' +
+      '<div class="lib-desc" style="margin-bottom:8px;">' + ref.desc + '</div>' +
+      '<div style="background:var(--gray-50);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--gray-600);margin-bottom:10px;line-height:1.55;">' +
+        ref.context +
+      '</div>' +
+      '<button id="inject-btn-' + idx + '" ' +
+        'style="width:100%;padding:7px 10px;border-radius:6px;' +
+        'border:1px solid ' + (isInjected ? 'var(--teal-mid)' : 'var(--border-md)') + ';' +
+        'background:' + (isInjected ? 'var(--teal-light)' : 'var(--white)') + ';' +
+        'color:' + (isInjected ? 'var(--teal-dark)' : 'var(--gray-900)') + ';' +
+        'font-size:13px;font-weight:500;cursor:pointer;font-family:var(--font);transition:all 0.15s;" ' +
+        'onclick="injectRef(' + idx + ', this)">' +
+        (isInjected ? '✓ ' + tl.ref_injected : '→ ' + tl.ref_inject_btn) +
+      '</button>';
+    grid.appendChild(card);
+  });
+}
+
+function injectRef(idx, btn) {
+  var ref = LIBRARY[idx];
+  var tl  = T[state.uiLang] || T.fr;
+  var ctx = document.getElementById('f-context');
+
+  if (!state.injectedRefs) state.injectedRefs = [];
+  var alreadyIn = state.injectedRefs.indexOf(ref.client) > -1;
+
+  if (alreadyIn) {
+    /* Remove injection */
+    var escaped = ref.client.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    ctx.value = ctx.value.replace(
+      new RegExp('\n?\n?\\[REF:' + escaped + '\\][^\[]*', 'g'), ''
+    ).trim();
+    state.injectedRefs.splice(state.injectedRefs.indexOf(ref.client), 1);
+    btn.textContent  = '→ ' + tl.ref_inject_btn;
+    btn.style.background = 'var(--white)';
+    btn.style.borderColor = 'var(--border-md)';
+    btn.style.color = 'var(--gray-900)';
+    /* Remove badge */
+    var badge = btn.closest('.lib-card').querySelector('.lib-card-head span');
+    if (badge) badge.remove();
+  } else {
+    /* Add injection */
+    var inject =
+      '\n\n[REF:' + ref.client + ']' +
+      '\nClient similaire : ' + ref.client +
+      '\nTags : ' + ref.tags +
+      '\nContexte projet : ' + ref.context;
+    ctx.value = (ctx.value + inject).trim();
+    state.injectedRefs.push(ref.client);
+    btn.textContent  = '✓ ' + tl.ref_injected;
+    btn.style.background  = 'var(--teal-light)';
+    btn.style.borderColor = 'var(--teal-mid)';
+    btn.style.color = 'var(--teal-dark)';
+    /* Add badge */
+    var head = btn.closest('.lib-card').querySelector('.lib-card-head');
+    if (!head.querySelector('span')) {
+      var badge = document.createElement('span');
+      badge.style.cssText = 'font-size:10px;background:var(--teal-light);color:var(--teal-dark);padding:2px 8px;border-radius:100px;font-weight:500;white-space:nowrap;';
+      badge.textContent = '✓';
+      head.appendChild(badge);
+    }
+    setTimeout(function() { goStep(1); }, 500);
+  }
+}
+
+function addLibEntry() {
+  var client = v('lib-new-client');
+  var tags   = v('lib-new-tags');
+  var desc   = v('lib-new-desc');
+  var tl     = T[state.uiLang] || T.fr;
+  if (!client) { alert(tl.client_req); return; }
+  LIBRARY.push({ icon:'📁', bg:'#F1F0E9', client:client, tags:tags, desc:desc, context:desc });
+  document.getElementById('lib-new-client').value = '';
+  document.getElementById('lib-new-tags').value   = '';
+  document.getElementById('lib-new-desc').value   = '';
+  buildLibrary();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   EXPORT PDF
+════════════════════════════════════════════════════════════════ */
+function downloadPDF() {
+  var btn = document.getElementById('btn-pdf');
+  btn.disabled = true;
+  btn.textContent = '⏳ Génération PDF…';
+
+  var client   = v('f-client') || 'BleuLemon';
+  var date     = new Date().toLocaleDateString('fr-FR');
+  var text     = state.generatedText;
+
+  /* Build a full HTML page styled for print */
+  var printHTML = '<!DOCTYPE html><html lang="fr"><head>' +
+    '<meta charset="UTF-8">' +
+    '<title>Proposition — ' + client + '</title>' +
+    '<style>' +
+      '@page { size: A4; margin: 20mm 18mm 20mm 18mm; }' +
+      'body { font-family: Arial, sans-serif; font-size: 11pt; color: #1C1C1A; line-height: 1.6; }' +
+      '.cover { text-align:center; padding: 60px 0 40px; border-bottom: 3px solid #1D9E75; margin-bottom: 32px; }' +
+      '.cover h1 { font-size: 22pt; color: #1a2744; margin-bottom: 8px; }' +
+      '.cover p  { font-size: 11pt; color: #5F5E5A; margin: 4px 0; }' +
+      '.cover .badge { display:inline-block; background:#E1F5EE; color:#085041; padding:4px 14px; border-radius:20px; font-size:10pt; margin-top:10px; }' +
+      'h2 { font-size: 14pt; color: #1a2744; border-bottom: 1.5px solid #1D9E75; padding-bottom: 4px; margin: 24px 0 10px; }' +
+      'h3 { font-size: 12pt; color: #1D9E75; margin: 16px 0 6px; }' +
+      'h4 { font-size: 11pt; color: #1a2744; margin: 12px 0 4px; }' +
+      'ul { margin: 6px 0 10px 20px; }' +
+      'li { margin-bottom: 4px; }' +
+      'p  { margin: 0 0 8px; }' +
+      'strong { color: #1a2744; }' +
+      '.footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9pt; color: #9B9A95; border-top: 1px solid #E0DFDA; padding: 6px 0; }' +
+    '</style></head><body>' +
+    '<div class="cover">' +
+      '<h1>Proposition Commerciale</h1>' +
+      '<p><strong>' + client + '</strong></p>' +
+      '<p>BleuLemon · Atlassian Platinum Partner</p>' +
+      '<p>' + date + '</p>' +
+      '<span class="badge">Powered by Mistral AI</span>' +
+    '</div>' +
+    markdownToPrintHTML(text) +
+    '<div class="footer">BleuLemon · Confidentiel · ' + date + '</div>' +
+    '</body></html>';
+
+  /* Open print dialog in new window */
+  var win = window.open('', '_blank', 'width=900,height=700');
+  win.document.write(printHTML);
+  win.document.close();
+  win.focus();
+  setTimeout(function() {
+    win.print();
+    btn.disabled = false;
+    btn.textContent = '🖨 Exporter PDF';
+  }, 800);
+}
+
+/* Convert markdown text to clean print HTML */
+function markdownToPrintHTML(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+    .replace(/^### (.+)$/gm,  '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm,   '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm,    '<h2>$1</h2>')
+    .replace(/^- (.+)$/gm,    '<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>')
+    .replace(/\n{2,}/g, '</p><p>')
+    .replace(/\n/g, '<br>')
+    .replace(/^/, '<p>').replace(/$/, '</p>');
+}
+
+/* ════════════════════════════════════════════════════════════════
+   EXPORT WORD (.docx)
+════════════════════════════════════════════════════════════════ */
+function downloadWord() {
+  var btn = document.getElementById('btn-word');
+
+  /* Check docx library is loaded */
+  if (typeof docx === 'undefined') {
+    btn.textContent = '⏳ Chargement…';
+    btn.disabled = true;
+    var s = document.createElement('script');
+    s.src = 'https://unpkg.com/docx@8.5.0/build/index.umd.js';
+    s.onload  = function() { btn.disabled = false; btn.textContent = '📄 Exporter Word'; downloadWord(); };
+    s.onerror = function() { btn.disabled = false; btn.textContent = '✗ Erreur réseau'; };
+    document.head.appendChild(s);
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = '⏳ Génération Word…';
+
+  var client = v('f-client') || 'Client';
+  var date   = new Date().toLocaleDateString('fr-FR');
+  var text   = state.generatedText;
+
+  var D   = docx;
+  var ALT = D.AlignmentType;
+  var BST = D.BorderStyle;
+  var WDT = D.WidthType;
+  var SHT = D.ShadingType;
+  var LVF = D.LevelFormat;
+
+  /* Helper: plain paragraph */
+  function p(txt, opts) {
+    opts = opts || {};
+    return new D.Paragraph({
+      alignment: opts.center ? ALT.CENTER : ALT.LEFT,
+      spacing: { before: opts.before || 0, after: opts.after || 120 },
+      children: [new D.TextRun({
+        text: txt, font: 'Arial',
+        size:  opts.size  || 22,
+        bold:  opts.bold  || false,
+        color: opts.color || '1C1C1A',
+      })],
+    });
+  }
+
+  /* Helper: heading paragraph */
+  function heading(txt, level) {
+    var sizes  = { 1: 32, 2: 26, 3: 22 };
+    var colors = { 1: '1a2744', 2: '1D9E75', 3: '1a2744' };
+    return new D.Paragraph({
+      spacing: { before: level === 1 ? 360 : 240, after: 120 },
+      border: level === 2 ? { bottom: { style: BST.SINGLE, size: 4, color: '1D9E75', space: 3 } } : undefined,
+      children: [new D.TextRun({
+        text: txt, font: 'Arial',
+        size:  sizes[level]  || 22,
+        bold:  true,
+        color: colors[level] || '1a2744',
+      })],
+    });
+  }
+
+  /* Helper: bullet */
+  function bullet(txt) {
+    return new D.Paragraph({
+      numbering: { reference: 'bullets', level: 0 },
+      spacing: { before: 40, after: 60 },
+      children: [new D.TextRun({ text: txt, font: 'Arial', size: 22, color: '1C1C1A' })],
+    });
+  }
+
+  /* Parse markdown text into docx children array */
+  function parseMarkdown(md) {
+    var children = [];
+    var lines    = md.split('\n');
+    lines.forEach(function(line) {
+      var l = line.trim();
+      if (!l) { children.push(p('')); return; }
+      if (l.startsWith('#### ')) { children.push(heading(l.slice(5), 3)); return; }
+      if (l.startsWith('### '))  { children.push(heading(l.slice(4), 3)); return; }
+      if (l.startsWith('## '))   { children.push(heading(l.slice(3), 2)); return; }
+      if (l.startsWith('# '))    { children.push(heading(l.slice(2), 1)); return; }
+      if (l.startsWith('- '))    { children.push(bullet(l.slice(2)));     return; }
+      /* Bold inline: split on ** */
+      var parts = l.split(/\*\*([^*]+)\*\*/g);
+      var runs  = parts.map(function(part, i) {
+        return new D.TextRun({ text: part, font:'Arial', size:22, bold: i % 2 === 1, color:'1C1C1A' });
+      });
+      children.push(new D.Paragraph({ spacing:{ before:0, after:120 }, children: runs }));
+    });
+    return children;
+  }
+
+  /* ── Cover block ─────────────────────────────────────────── */
+  var coverChildren = [
+    new D.Paragraph({ spacing:{before:480,after:80}, alignment:ALT.CENTER,
+      children:[new D.TextRun({text:'Proposition Commerciale',font:'Arial',size:48,bold:true,color:'1a2744'})] }),
+    new D.Paragraph({ spacing:{before:0,after:60}, alignment:ALT.CENTER,
+      children:[new D.TextRun({text:client,font:'Arial',size:32,bold:true,color:'1D9E75'})] }),
+    new D.Paragraph({ spacing:{before:0,after:40}, alignment:ALT.CENTER,
+      children:[new D.TextRun({text:'BleuLemon · Atlassian Platinum Partner',font:'Arial',size:22,color:'5F5E5A'})] }),
+    new D.Paragraph({ spacing:{before:0,after:400}, alignment:ALT.CENTER,
+      children:[new D.TextRun({text:date,font:'Arial',size:20,color:'9B9A95',italics:true})] }),
+    new D.Paragraph({ spacing:{before:0,after:0},
+      border:{ bottom:{ style:BST.SINGLE, size:6, color:'1D9E75', space:4 } },
+      children:[new D.TextRun({text:'',font:'Arial',size:22})] }),
+    new D.Paragraph({ children:[new D.TextRun({text:'',size:22})] }),
+  ];
+
+  /* ── Body from generated text ────────────────────────────── */
+  var bodyChildren = parseMarkdown(text);
+
+  /* ── Footer paragraph ────────────────────────────────────── */
+  var footerChildren = [
+    new D.Paragraph({
+      spacing:{ before:360, after:0 },
+      border:{ top:{ style:BST.SINGLE, size:4, color:'1D9E75', space:6 } },
+      alignment: ALT.CENTER,
+      children:[new D.TextRun({
+        text: 'BleuLemon · Confidentiel · ' + date + ' · Powered by Mistral AI',
+        font:'Arial', size:18, color:'9B9A95', italics:true
+      })],
+    }),
+  ];
+
+  var doc = new D.Document({
+    numbering: {
+      config: [{
+        reference: 'bullets',
+        levels: [{
+          level: 0, format: LVF.BULLET, text: '•',
+          alignment: ALT.LEFT,
+          style: { paragraph: { indent: { left: 560, hanging: 280 } } },
+        }],
+      }],
+    },
+    styles: {
+      default: { document: { run: { font:'Arial', size:22, color:'1C1C1A' } } },
+    },
+    sections: [{
+      properties: {
+        page: {
+          size: { width: 11906, height: 16838 },
+          margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 },
+        },
+      },
+      children: coverChildren.concat(bodyChildren).concat(footerChildren),
+    }],
+  });
+
+  D.Packer.toBlob(doc).then(function(blob) {
+    var url = URL.createObjectURL(blob);
+    var a   = document.createElement('a');
+    a.href  = url;
+    a.download = 'BleuLemon_Proposition_' + client.replace(/\s+/g,'_') + '.docx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    btn.disabled    = false;
+    btn.textContent = '📄 Exporter Word';
+  }).catch(function(err) {
+    btn.disabled    = false;
+    btn.textContent = '✗ Erreur Word';
+    console.error(err);
+  });
+}
+
+
+function v(id) {
+  var el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).catch(function() { fallbackCopy(text); });
+  } else { fallbackCopy(text); }
+}
+
+function fallbackCopy(text) {
+  var ta        = document.createElement('textarea');
+  ta.value      = text;
+  ta.style.cssText = 'position:fixed;opacity:0;';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
+
+function download(filename, content) {
+  var blob = new Blob([content], { type:'text/plain;charset=utf-8' });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function flash(btn, msg) {
+  var orig      = btn.textContent;
+  btn.textContent = msg;
+  setTimeout(function() { btn.textContent = orig; }, 1500);
+}
+</script>
+</body>
+</html>

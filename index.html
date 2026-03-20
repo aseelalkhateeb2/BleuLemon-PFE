@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BleuLemon — Générateur de Propositions Commerciales</title>
+<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ── SIDEBAR ──────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-box">
+        <div class="logo-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="2"  width="7"  height="5" rx="1" fill="white"/>
+            <rect x="2" y="9"  width="16" height="3" rx="1" fill="#9FE1CB"/>
+            <rect x="2" y="14" width="12" height="3" rx="1" fill="white" opacity="0.65"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-text">BleuLemon</div>
+          <div class="logo-sub">Proposal Generator · Mistral AI</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workflow</div>
+      <div class="nav-item active" id="nav-1" onclick="goStep(1)"><div class="nav-num">1</div><span>Brief client</span></div>
+      <div class="nav-item"        id="nav-2" onclick="goStep(2)"><div class="nav-num">2</div><span>Structure</span></div>
+      <div class="nav-item"        id="nav-3" onclick="goStep(3)"><div class="nav-num">3</div><span>Prompt généré</span></div>
+      <div class="nav-item"        id="nav-4" onclick="goStep(4)"><div class="nav-num">4</div><span>Génération IA</span></div>
+      <div class="nav-item"        id="nav-5" onclick="goStep(5)"><div class="nav-num">5</div><span>Résultat final</span></div>
+      <div class="nav-label" style="margin-top:28px;">Bibliothèque</div>
+      <div class="nav-item"        id="nav-6" onclick="goStep(6)"><div class="nav-num">★</div><span>Références clients</span></div>
+    </nav>
+
+    <div class="sidebar-footer">
+      v2.0 · PFE IAE Lyon 2026<br>BleuLemon · Powered by Mistral AI
+    </div>
+  </aside>
+
+  <!-- ── MAIN ─────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="topbar-title">Brief client</div>
+        <div class="topbar-sub"   id="topbar-sub">Renseignez les informations du client et du projet</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="lang-toggle" style="margin-bottom:0;">
+          <button class="lang-btn active" id="ui-lang-fr" onclick="setUiLang('fr')">FR</button>
+          <button class="lang-btn"        id="ui-lang-en" onclick="setUiLang('en')">EN</button>
+        </div>
+        <div class="api-status">
+          <div class="api-dot" id="api-dot"></div>
+          <span id="api-status-text">Clé Mistral requise</span>
+        </div>
+        <button class="btn" onclick="newProposal()" style="font-size:13px;">+ Nouvelle proposition</button>
+      </div>
+    </div>
+
+    <!-- Content area -->
+    <div class="content-area">
+
+      <!-- ── PANEL 1 : BRIEF CLIENT ────────────────────────── -->
+      <div id="panel-1" class="panel active">
+        <div class="section-title">Informations client &amp; projet</div>
+        <div class="section-desc">Complétez le brief — ces données alimenteront le prompt IA.</div>
+
+        <div class="field-label">Clé API Mistral AI</div>
+        <div class="api-key-card">
+          <input type="password" id="api-key" placeholder="Votre clé Mistral AI..."
+                 style="flex:1;" oninput="checkApiKey()" />
+          <span id="key-hint" style="font-size:12px;color:var(--gray-400);white-space:nowrap;">
+            Obtenez une clé sur console.mistral.ai
+          </span>
+        </div>
+
+        <div class="field-label">Client</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nom du client</label>
+            <input type="text" id="f-client" placeholder="ex. CORPIOT" />
+          </div>
+          <div class="form-group">
+            <label>Secteur d'activité</label>
+            <select id="f-sector">
+              <option value="">— Sélectionner —</option>
+              <option>IT / Technologie</option>
+              <option>Industrie</option>
+              <option>Banque / Finance</option>
+              <option>Énergie / Utilities</option>
+              <option>Retail / Distribution</option>
+              <option>Santé / Pharma</option>
+              <option>Transport / Logistique</option>
+              <option>Secteur public</option>
+              <option>Autre</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Interlocuteur principal</label>
+            <input type="text" id="f-contact" placeholder="ex. José DUPONT, Directeur des Ops" />
+          </div>
+          <div class="form-group">
+            <label>Taille entreprise</label>
+            <select id="f-size">
+              <option value="">— Sélectionner —</option>
+              <option>TPE / Startup (< 50)</option>
+              <option>PME (50 – 250)</option>
+              <option>ETI (250 – 5 000)</option>
+              <option>Grand compte (> 5 000)</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Contexte &amp; besoin principal</label>
+            <textarea id="f-context" rows="4"
+              placeholder="Décrivez le problème à résoudre, la situation actuelle, les outils en place, les enjeux clés..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Budget indicatif (€ HT)</label>
+            <input type="text" id="f-budget" placeholder="ex. 25 000 €" />
+          </div>
+          <div class="form-group">
+            <label>Délai souhaité</label>
+            <input type="text" id="f-deadline" placeholder="ex. Q2 2026, 3 mois" />
+          </div>
+        </div>
+
+        <div class="field-label">Logo du client</div>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 16px;">
+          <div id="logo-preview" style="width:90px;height:52px;background:var(--gray-100);border:1.5px dashed var(--teal-mid);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--gray-400);flex-shrink:0;overflow:hidden;">
+            Logo
+          </div>
+          <div style="flex:1;">
+            <label for="f-client-logo" style="display:block;margin-bottom:4px;">Fichier image (PNG, JPG, SVG)</label>
+            <input type="file" id="f-client-logo" accept="image/*"
+              style="font-size:13px;color:var(--gray-600);"
+              onchange="handleLogoUpload(this)" />
+            <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">Apparaîtra sur la page de couverture du PDF et Word</div>
+          </div>
+          <button class="btn" onclick="clearLogo()" style="flex-shrink:0;font-size:12px;">✕ Supprimer</button>
+        </div>
+
+        <div class="field-label">Type(s) de projet</div>
+        <div class="tag-grid" id="project-types">
+          <span class="tag" data-val="Migration Cloud Atlassian">Migration Cloud</span>
+          <span class="tag" data-val="Implémentation Jira Service Management">Implémentation JSM</span>
+          <span class="tag" data-val="ITSM / Gestion des services IT">ITSM</span>
+          <span class="tag" data-val="ESM / Gestion des services d'entreprise">ESM</span>
+          <span class="tag" data-val="Coaching Agile / SAFe">Agile Coaching</span>
+          <span class="tag" data-val="Formation Atlassian">Formation</span>
+          <span class="tag" data-val="Licensing Atlassian">Licensing</span>
+          <span class="tag" data-val="DevOps">DevOps</span>
+          <span class="tag" data-val="Run / TMA Atlassian">Run / TMA</span>
+          <span class="tag" data-val="Gestion des actifs (Assets / CMDB)">Assets / CMDB</span>
+          <span class="tag" data-val="Reprise de données">Reprise de données</span>
+          <span class="tag" data-val="Intégration SSO / LDAP">SSO / LDAP</span>
+        </div>
+
+        <div class="field-label">Langue de sortie</div>
+        <div class="lang-toggle" style="margin-bottom:24px;">
+          <button class="lang-btn active" id="lang-fr" onclick="setLang('fr')">Français</button>
+          <button class="lang-btn"        id="lang-en" onclick="setLang('en')">English</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="goStep(2)">Suivant : Structure →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 2 : STRUCTURE ────────────────────────────── -->
+      <div id="panel-2" class="panel">
+        <div class="section-title">Structure de la proposition</div>
+        <div class="section-desc">Activez ou désactivez les sections selon le contexte du projet.</div>
+
+        <div class="hint">
+          <span class="hint-icon">💡</span>
+          <span>Les sections <strong>obligatoires</strong> sont toujours incluses. Activez les optionnelles selon le projet.</span>
+        </div>
+
+        <div class="field-label">Sections obligatoires</div>
+        <div id="mandatory-sections"></div>
+        <div class="divider"></div>
+        <div class="field-label">Sections optionnelles</div>
+        <div id="optional-sections"></div>
+
+        <div class="btn-row">
+          <button class="btn"             onclick="goStep(1)">← Retour</button>
+          <button class="btn btn-primary" onclick="goStep(3)">Suivant : Prompt →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 3 : PROMPT ──────────────────────────────── -->
+      <div id="panel-3" class="panel">
+        <div class="section-title">Prompt généré</div>
+        <div class="section-desc">Prompt prêt à l'emploi — copiez-le ou générez directement.</div>
+
+        <div class="field-label">Récapitulatif du brief</div>
+        <div class="info-grid" id="brief-summary"></div>
+
+        <div class="field-label">Prompt système</div>
+        <div class="prompt-box" id="prompt-display"></div>
+
+        <div style="display:flex;gap:10px;margin-bottom:4px;">
+          <button class="btn btn-outline-teal" onclick="copyPrompt()">📋 Copier le prompt</button>
+          <button class="btn btn-outline-teal" onclick="downloadPrompt()">⬇ Télécharger .txt</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn"          onclick="goStep(2)">← Retour</button>
+          <button class="btn btn-teal" onclick="goStep(4)">Générer la proposition →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 4 : GÉNÉRATION ───────────────────────────── -->
+      <div id="panel-4" class="panel">
+        <div class="section-title">Génération IA en cours</div>
+        <div class="section-desc">Mistral AI rédige votre proposition commerciale…</div>
+
+        <div class="progress-wrap">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+
+        <div class="status-msg">
+          <div class="spinner" id="spinner"></div>
+          <span id="status-text">En attente…</span>
+        </div>
+
+        <div class="output-box" id="streaming-box" style="display:none;"></div>
+
+        <div class="btn-row" id="gen-btn-row" style="display:none;">
+          <button class="btn"             onclick="goStep(3)">← Modifier le prompt</button>
+          <button class="btn btn-primary" onclick="goStep(5)">Voir le résultat structuré →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 5 : RÉSULTAT ────────────────────────────── -->
+      <div id="panel-5" class="panel">
+        <div class="section-title">Proposition commerciale générée</div>
+        <div class="section-desc">Relisez, ajustez et téléchargez votre proposition.</div>
+
+        <div id="result-blocks"></div>
+        <div class="divider"></div>
+
+        <div class="field-label">Actions</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+          <button class="btn btn-outline-teal" onclick="downloadResult()">⬇ Télécharger .txt</button>
+          <button class="btn btn-outline-teal" onclick="downloadPDF()"    id="btn-pdf">🖨 Exporter PDF</button>
+          <button class="btn btn-outline-teal" onclick="downloadWord()"   id="btn-word">📄 Exporter Word</button>
+          <button class="btn btn-outline-teal" onclick="copyResult()">📋 Copier le texte</button>
+          <button class="btn btn-primary"      onclick="translateResult()" id="btn-translate">🌐 Traduire en anglais</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn"             onclick="goStep(3)">← Modifier le brief</button>
+          <button class="btn btn-teal"    onclick="regenerate()">Régénérer →</button>
+        </div>
+      </div>
+
+      <!-- ── PANEL 6 : BIBLIOTHÈQUE ────────────────────────── -->
+      <div id="panel-6" class="panel">
+        <div class="section-title">Bibliothèque de références clients</div>
+        <div class="section-desc">Cliquez sur une référence pour l'injecter dans votre brief.</div>
+
+        <div class="lib-grid" id="lib-grid"></div>
+        <div class="divider"></div>
+
+        <div class="field-label">Ajouter une référence</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nom du client</label>
+            <input type="text" id="lib-new-client" placeholder="ex. Safran" />
+          </div>
+          <div class="form-group">
+            <label>Tags</label>
+            <input type="text" id="lib-new-tags" placeholder="ex. Migration, Cloud, JSM" />
+          </div>
+          <div class="form-group full">
+            <label>Description du projet</label>
+            <textarea id="lib-new-desc" rows="2"
+              placeholder="Décrivez le projet et les résultats obtenus..."></textarea>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="addLibEntry()">+ Ajouter à la bibliothèque</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
